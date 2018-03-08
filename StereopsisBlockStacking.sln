@@ -1,0 +1,35 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2024
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "StereopsisBlockStacking", "StereopsisBlockStacking\StereopsisBlockStacking.vcxproj", "{95E213F3-6CCF-4088-8575-03F70A976CF2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Debug|x64.ActiveCfg = Debug|x64
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Debug|x64.Build.0 = Debug|x64
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Debug|x64.Deploy.0 = Debug|x64
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Debug|x86.ActiveCfg = Debug|Win32
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Debug|x86.Build.0 = Debug|Win32
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Debug|x86.Deploy.0 = Debug|Win32
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Release|x64.ActiveCfg = Release|x64
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Release|x64.Build.0 = Release|x64
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Release|x64.Deploy.0 = Release|x64
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Release|x86.ActiveCfg = Release|Win32
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Release|x86.Build.0 = Release|Win32
+		{95E213F3-6CCF-4088-8575-03F70A976CF2}.Release|x86.Deploy.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C72581BE-6D91-44D1-8FDA-0914457A9B6C}
+	EndGlobalSection
+EndGlobal

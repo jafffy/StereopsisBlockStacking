@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Common">
+      <UniqueIdentifier>95e213f3-6ccf-4088-8575-03f70a976cf2</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Assets">
+      <UniqueIdentifier>1da31d49-9327-4962-ab4f-3702b00f7cd5</UniqueIdentifier>
+      <Extensions>bmp;fbx;gif;jpg;jpeg;tga;tiff;tif;png</Extensions>
+    </Filter>
+    <Filter Include="Content">
+      <UniqueIdentifier>b2bbfb44-5cfc-48c1-8198-103924619c14</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\Shaders">
+      <UniqueIdentifier>d2621086-32cb-4cc7-b027-b5edbe9d3cb7</UniqueIdentifier>
+    </Filter>
+    <ClInclude Include="Common\DirectXHelper.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\StepTimer.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\DeviceResources.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClCompile Include="Common\DeviceResources.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClInclude Include="Common\CameraResources.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClCompile Include="Common\CameraResources.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <Image Include="Assets\LockScreenLogo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\SplashScreen.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square150x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Square44x44Logo.targetsize-24_altform-unplated.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\StoreLogo.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Image Include="Assets\Wide310x150Logo.scale-200.png">
+      <Filter>Assets</Filter>
+    </Image>
+    <Filter Include="LPGL">
+      <UniqueIdentifier>{6aab70a8-c67f-4c0e-97d4-e7cc8ea56b38}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp" />
+    <ClCompile Include="AppView.cpp" />
+    <ClCompile Include="Content\SpatialInputHandler.cpp">
+      <Filter>Content</Filter>
+    </ClCompile>
+    <ClCompile Include="Content\SpinningCubeRenderer.cpp">
+      <Filter>Content</Filter>
+    </ClCompile>
+    <ClCompile Include="StereopsisBlockStackingMain.cpp" />
+    <ClCompile Include="Content\SceneNode.cpp">
+      <Filter>Content</Filter>
+    </ClCompile>
+    <ClCompile Include="LPGL\lpgl.cpp">
+      <Filter>LPGL</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="AppView.h" />
+    <ClInclude Include="Content\SpatialInputHandler.h">
+      <Filter>Content</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\SpinningCubeRenderer.h">
+      <Filter>Content</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\ShaderStructures.h">
+      <Filter>Content</Filter>
+    </ClInclude>
+    <ClInclude Include="StereopsisBlockStackingMain.h" />
+    <ClInclude Include="Content\PlaneRenderer.h">
+      <Filter>Content</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\SceneNode.h">
+      <Filter>Content</Filter>
+    </ClInclude>
+    <ClInclude Include="LPGL\lpgl.h">
+      <Filter>LPGL</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Content\VertexShader.hlsl">
+      <Filter>Content\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\GeometryShader.hlsl">
+      <Filter>Content\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\PixelShader.hlsl">
+      <Filter>Content\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\VPRTVertexShader.hlsl">
+      <Filter>Content\Shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="StereopsisBlockStacking_TemporaryKey.pfx" />
+  </ItemGroup>
+</Project>
