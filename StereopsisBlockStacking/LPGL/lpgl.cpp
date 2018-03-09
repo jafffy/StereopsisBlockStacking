@@ -187,9 +187,16 @@ void __lpglDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const 
 		&offset
 	);
 
+	DXGI_FORMAT indexBufferFormat;
+
+	switch (type) {
+	case GL_UNSIGNED_SHORT:
+		indexBufferFormat = DXGI_FORMAT_R16_UINT;
+	}
+
 	context->IASetIndexBuffer(
 		gLpglContext.buffers[gLpglContext.activeElementArrayBuffer].get()->buffer.Get(),
-		DXGI_FORMAT_R16_UINT, // XXX
+		indexBufferFormat,
 		0
 	);
 

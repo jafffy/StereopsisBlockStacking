@@ -17,6 +17,7 @@ typedef int GLsizei;
 typedef unsigned int GLuint;
 typedef void GLvoid;
 typedef int* GLsizeiptr;
+typedef bool GLboolean;
 
 void lpglInit(const std::shared_ptr<DX::DeviceResources>& deviceResources);
 

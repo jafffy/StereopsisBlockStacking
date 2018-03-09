@@ -32,6 +32,7 @@ void SpinningCubeRenderer::Render()
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 
 	glLoadIdentity();
 	glTranslatef(m_position.x, m_position.y, m_position.z);
@@ -54,6 +55,12 @@ void SpinningCubeRenderer::CreateDeviceDependentResources()
 			{ XMFLOAT3(0.1f,  0.1f, -0.1f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
 			{ XMFLOAT3(0.1f,  0.1f,  0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
 		} };
+
+		DirectX::BoundingBox::CreateFromPoints(
+			initialBoundingBox,
+			cubeVertices.size(),
+			reinterpret_cast<const XMFLOAT3*>(cubeVertices.data()),
+			sizeof(XMFLOAT3) * 2);
 
 		glGenBuffers(1, &vertexBuffer);
 		glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
@@ -100,4 +107,18 @@ void SpinningCubeRenderer::CreateDeviceDependentResources()
 void SpinningCubeRenderer::ReleaseDeviceDependentResources()
 {
 	m_loadingComplete = false;
+}
+
+DirectX::BoundingBox SpinningCubeRenderer::GetBoundingBox() const
+{
+	DirectX::BoundingBox outBB;
+
+	initialBoundingBox.Transform(
+		outBB,
+		XMMatrixTranslationFromVector(
+			XMLoadFloat3(&m_position)
+		)
+	);
+
+	return outBB;
 }

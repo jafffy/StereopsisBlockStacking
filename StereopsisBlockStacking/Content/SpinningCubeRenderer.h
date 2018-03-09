@@ -5,6 +5,8 @@
 #include "ShaderStructures.h"
 #include "LPGL\lpgl.h"
 
+#include <DirectXCollision.h>
+
 namespace StereopsisBlockStacking
 {
     // This sample renderer instantiates a basic rendering pipeline.
@@ -21,7 +23,13 @@ namespace StereopsisBlockStacking
         void SetPosition(Windows::Foundation::Numerics::float3 pos) { m_position = pos;  }
         Windows::Foundation::Numerics::float3 GetPosition()         { return m_position; }
 
+		DirectX::BoundingBox GetBoundingBox() const;
+
+		bool isGrabbed = false;
+
     private:
+		DirectX::BoundingBox initialBoundingBox;
+
 
 		GLuint vertexBuffer;
 		GLuint indexBuffer;
