@@ -11,27 +11,33 @@ using namespace std::placeholders;
 // Creates and initializes a GestureRecognizer that listens to a Person.
 SpatialInputHandler::SpatialInputHandler()
 {
-    // The interaction manager provides an event that informs the app when
-    // spatial interactions are detected.
-    m_interactionManager = SpatialInteractionManager::GetForCurrentView();
+	// The interaction manager provides an event that informs the app when
+	// spatial interactions are detected.
+	m_interactionManager = SpatialInteractionManager::GetForCurrentView();
 
-    // Bind a handler to the SourcePressed event.
-    m_sourcePressedEventToken =
-        m_interactionManager->SourcePressed +=
-            ref new TypedEventHandler<SpatialInteractionManager^, SpatialInteractionSourceEventArgs^>(
-                bind(&SpatialInputHandler::OnSourcePressed, this, _1, _2)
-                );
-
-    //
-    // TODO: Expand this class to use other gesture-based input events as applicable to
-    //       your app.
-    //
+	// Bind a handler to the SourcePressed event.
+	m_sourcePressedEventToken =
+		m_interactionManager->SourcePressed +=
+		ref new TypedEventHandler<SpatialInteractionManager^, SpatialInteractionSourceEventArgs^>(
+			bind(&SpatialInputHandler::OnSourcePressed, this, _1, _2)
+			);
+	m_sourceReleasedEventToken =
+		m_interactionManager->SourceReleased +=
+		ref new TypedEventHandler<SpatialInteractionManager^, SpatialInteractionSourceEventArgs^>(
+			bind(&SpatialInputHandler::OnSourceReleased, this, _1, _2)
+			);
+	m_sourceUpdatedEventToken =
+		m_interactionManager->SourceUpdated +=
+		ref new TypedEventHandler<SpatialInteractionManager^, SpatialInteractionSourceEventArgs^>(
+			bind(&SpatialInputHandler::OnSourceUpdated, this, _1, _2)
+			);
 }
 
 SpatialInputHandler::~SpatialInputHandler()
 {
-    // Unregister our handler for the OnSourcePressed event.
-    m_interactionManager->SourcePressed -= m_sourcePressedEventToken;
+	m_interactionManager->SourcePressed -= m_sourcePressedEventToken;
+	m_interactionManager->SourceReleased -= m_sourceReleasedEventToken;
+	m_interactionManager->SourceUpdated -= m_sourceUpdatedEventToken;
 }
 
 // Checks if the user performed an input gesture since the last call to this method.
@@ -39,17 +45,29 @@ SpatialInputHandler::~SpatialInputHandler()
 // input state.
 SpatialInteractionSourceState^ SpatialInputHandler::CheckForInput()
 {
-    SpatialInteractionSourceState^ sourceState = m_sourceState;
-    m_sourceState = nullptr;
-    return sourceState;
+	return m_sourceState;
 }
 
-void SpatialInputHandler::OnSourcePressed(SpatialInteractionManager^ sender, SpatialInteractionSourceEventArgs^ args)
+void SpatialInputHandler::OnSourcePressed(
+	SpatialInteractionManager^ sender,
+	SpatialInteractionSourceEventArgs^ args)
 {
-    m_sourceState = args->State;
+	m_spatialInputState = eSISPressed;
+	m_sourceState = args->State;
+}
 
-    //
-    // TODO: In your app or game engine, rewrite this method to queue
-    //       input events in your input class or event handler.
-    //
+void SpatialInputHandler::OnSourceReleased(
+	Windows::UI::Input::Spatial::SpatialInteractionManager^ sender,
+	Windows::UI::Input::Spatial::SpatialInteractionSourceEventArgs^ args)
+{
+	m_spatialInputState = eSISReleased;
+	m_sourceState = args->State;
+}
+
+void SpatialInputHandler::OnSourceUpdated(
+	Windows::UI::Input::Spatial::SpatialInteractionManager^ sender,
+	Windows::UI::Input::Spatial::SpatialInteractionSourceEventArgs^ args)
+{
+	m_spatialInputState = eSISMoved;
+	m_sourceState = args->State;
 }

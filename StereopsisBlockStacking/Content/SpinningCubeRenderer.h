@@ -30,7 +30,6 @@ namespace StereopsisBlockStacking
     private:
 		DirectX::BoundingBox initialBoundingBox;
 
-
 		GLuint vertexBuffer;
 		GLuint indexBuffer;
 

@@ -46,13 +46,13 @@ void SpinningCubeRenderer::CreateDeviceDependentResources()
 	{
 		static const std::array<VertexPositionColor, 8> cubeVertices =
 		{ {
-			{ XMFLOAT3(-0.1f, -0.1f, -0.1f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
-			{ XMFLOAT3(-0.1f, -0.1f,  0.1f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-			{ XMFLOAT3(-0.1f,  0.1f, -0.1f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-			{ XMFLOAT3(-0.1f,  0.1f,  0.1f), XMFLOAT3(0.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(0.1f, -0.1f, -0.1f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-			{ XMFLOAT3(0.1f, -0.1f,  0.1f), XMFLOAT3(1.0f, 0.0f, 1.0f) },
-			{ XMFLOAT3(0.1f,  0.1f, -0.1f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
+			{ XMFLOAT3(-0.1f, -0.1f, -0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(-0.1f, -0.1f,  0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(-0.1f,  0.1f, -0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(-0.1f,  0.1f,  0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(0.1f, -0.1f, -0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(0.1f, -0.1f,  0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(0.1f,  0.1f, -0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
 			{ XMFLOAT3(0.1f,  0.1f,  0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
 		} };
 
