@@ -44,16 +44,17 @@ void SpinningCubeRenderer::CreateDeviceDependentResources()
 {
 	task<void> createCubeTask = create_task([this]()
 	{
+		float width = 0.05f;
 		static const std::array<VertexPositionColor, 8> cubeVertices =
 		{ {
-			{ XMFLOAT3(-0.1f, -0.1f, -0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(-0.1f, -0.1f,  0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(-0.1f,  0.1f, -0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(-0.1f,  0.1f,  0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(0.1f, -0.1f, -0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(0.1f, -0.1f,  0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(0.1f,  0.1f, -0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(0.1f,  0.1f,  0.1f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(-width, -width, -width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(-width, -width,  width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(-width,  width, -width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(-width,  width,  width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(width, -width, -width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(width, -width,  width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(width,  width, -width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(width,  width,  width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
 		} };
 
 		DirectX::BoundingBox::CreateFromPoints(
