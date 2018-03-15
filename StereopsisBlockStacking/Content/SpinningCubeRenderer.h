@@ -23,6 +23,9 @@ namespace StereopsisBlockStacking
         void SetPosition(Windows::Foundation::Numerics::float3 pos) { m_position = pos;  }
         Windows::Foundation::Numerics::float3 GetPosition()         { return m_position; }
 
+        void SetScale(Windows::Foundation::Numerics::float3 scale) { m_scale = scale; }
+        Windows::Foundation::Numerics::float3 GetScale() const { return m_scale; }
+
 		DirectX::BoundingBox GetBoundingBox() const;
 
 		bool isGrabbed = false;
@@ -39,6 +42,7 @@ namespace StereopsisBlockStacking
         // Variables used with the rendering loop.
         bool                                            m_loadingComplete = false;
         Windows::Foundation::Numerics::float3           m_position = { 0.f, 0.f, -2.f };
+        Windows::Foundation::Numerics::float3           m_scale = { 1.0f, 1.0f, 1.0f };
 
     };
 }

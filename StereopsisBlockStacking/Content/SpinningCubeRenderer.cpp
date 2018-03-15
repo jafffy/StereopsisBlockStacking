@@ -114,11 +114,15 @@ DirectX::BoundingBox SpinningCubeRenderer::GetBoundingBox() const
 {
 	DirectX::BoundingBox outBB;
 
+    XMMATRIX modelTransform = 
+    XMMatrixMultiply(
+    XMMatrixScalingFromVector(XMLoadFloat3(&m_scale)),
+    XMMatrixTranslationFromVector(XMLoadFloat3(&m_position))
+    );
+
 	initialBoundingBox.Transform(
 		outBB,
-		XMMatrixTranslationFromVector(
-			XMLoadFloat3(&m_position)
-		)
+		modelTransform
 	);
 
 	return outBB;
