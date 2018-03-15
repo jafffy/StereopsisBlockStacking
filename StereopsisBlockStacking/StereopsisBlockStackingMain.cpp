@@ -8,6 +8,10 @@
 
 #include <DirectXCollision.h>
 
+#include <vector>
+#include <string>
+
+#include "Common\FramerateController.h"
 
 using namespace StereopsisBlockStacking;
 
@@ -19,6 +23,207 @@ using namespace Windows::Graphics::Holographic;
 using namespace Windows::Perception::Spatial;
 using namespace Windows::UI::Input::Spatial;
 using namespace std::placeholders;
+using namespace DirectX;
+
+using namespace Windows::Devices::Sensors;
+
+struct BoundingBox2D
+{
+    XMFLOAT2 Min;
+    XMFLOAT2 Max;
+
+    BoundingBox2D()
+        : Min(FLT_MAX, FLT_MAX),
+        Max(-FLT_MAX, -FLT_MAX)
+    {}
+
+    BoundingBox2D(const XMFLOAT2& Min, const XMFLOAT2& Max)
+        : Min(Min), Max(Max) {}
+
+    float Width() const { return Max.x - Min.x; }
+    float Height() const { return Max.y - Min.y; }
+
+    void AddPoint(float x, float y)
+    {
+        Min.x = x < Min.x ? x : Min.x;
+        Min.y = y < Min.y ? y : Min.y;
+        Max.x = x > Max.x ? x : Max.x;
+        Max.y = y > Max.y ? y : Max.y;
+    }
+
+    bool IncludePoint(const XMFLOAT2& v) const
+    {
+        return Min.x < v.x && Min.y < v.y && Max.x > v.x && Max.y > v.y;
+    }
+
+    bool Intersect(const BoundingBox2D& bb) const
+    {
+        return IncludePoint(bb.Min) || IncludePoint(bb.Max);
+    }
+};
+
+struct BoundingBox3D
+{
+    XMFLOAT3 Min;
+    XMFLOAT3 Max;
+
+    XMFLOAT3 vertices[8];
+
+    BoundingBox3D()
+        : Min(FLT_MAX, FLT_MAX, FLT_MAX),
+        Max(-FLT_MAX, -FLT_MAX, -FLT_MAX)
+    {}
+
+    void AddPoint(const XMFLOAT3 &p)
+    {
+        float* m = &Min.x;
+        float* M = &Max.x;
+        const float* pPoint = &p.x;
+
+        for (int i = 0; i < 3; ++i) {
+            if (m[i] > pPoint[i]) {
+                m[i] = pPoint[i];
+            }
+            if (M[i] < pPoint[i]) {
+                M[i] = pPoint[i];
+            }
+        }
+    }
+
+    void BuildGeometry()
+    {
+        vertices[0] = Min;
+        vertices[1] = Max;
+        vertices[2] = XMFLOAT3(Min.x, Max.y, Max.z);
+        vertices[3] = XMFLOAT3(Min.x, Max.y, Min.z);
+        vertices[4] = XMFLOAT3(Max.x, Max.y, Min.z);
+        vertices[5] = XMFLOAT3(Min.x, Min.y, Max.z);
+        vertices[6] = XMFLOAT3(Max.x, Min.y, Max.z);
+        vertices[7] = XMFLOAT3(Max.x, Min.y, Min.z);
+    }
+};
+
+struct QuadTree
+{
+    struct Node
+    {
+        Node* parent = nullptr;
+        Node* children[4] = { nullptr, nullptr, nullptr, nullptr };
+
+        bool isFull = false;
+        int depth;
+    };
+
+    Node* rootNode = nullptr;
+
+    static QuadTree* Create(const std::vector<const BoundingBox2D*>& geometries, const int kMaxDepth);
+
+    ~QuadTree()
+    {
+        DeleteSubtree(rootNode);
+
+        if (rootNode) {
+            delete rootNode;
+            rootNode = nullptr;
+        }
+    }
+
+    void DeleteSubtree(Node* node)
+    {
+        if (!node)
+            return;
+
+        for (auto* child : node->children) {
+            DeleteSubtree(child);
+
+            if (child) {
+                delete child;
+                child = nullptr;
+            }
+        }
+    }
+};
+
+QuadTree* QuadTree::Create(const std::vector<const BoundingBox2D*>& geometries, const int kMaxDepth)
+{
+    QuadTree* res = new QuadTree();
+
+    std::function<void(const BoundingBox2D&, const std::vector<const BoundingBox2D*>&, int, QuadTree::Node*)> addDepth
+        = [&](const BoundingBox2D& area, const std::vector<const BoundingBox2D*>& geometries, int depth, QuadTree::Node* parent) {
+        auto& Min = area.Min;
+        auto& Max = area.Max;
+        float halfWidth = area.Width() * 0.5f;
+        float halfHeight = area.Height() * 0.5f;
+        std::vector<BoundingBox2D> subareas;
+        subareas.push_back(BoundingBox2D(XMFLOAT2(Min.x, Min.y), XMFLOAT2(Min.x + halfWidth, Min.y + halfHeight)));
+        subareas.push_back(BoundingBox2D(XMFLOAT2(Min.x + halfWidth, Min.y), XMFLOAT2(Max.x, Min.y + halfHeight)));
+        subareas.push_back(BoundingBox2D(XMFLOAT2(Min.x, Min.y + halfHeight), XMFLOAT2(Min.x + halfWidth, Max.y)));
+        subareas.push_back(BoundingBox2D(XMFLOAT2(Min.x + halfWidth, Min.y + halfHeight), XMFLOAT2(Max.x, Max.y)));
+
+        for (int i = 0; i < subareas.size(); ++i) {
+            auto& subarea = subareas[i];
+
+            for (auto* geometry : geometries) {
+                if (subarea.Intersect(*geometry)) {
+                    QuadTree::Node* pNode = new QuadTree::Node();
+                    parent->children[i] = pNode;
+                    pNode->parent = parent;
+                    pNode->isFull = false;
+                    pNode->depth = depth;
+
+                    if (depth + 1 < kMaxDepth) {
+                        addDepth(subarea, geometries, depth + 1, pNode);
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        parent->isFull = parent->children[0] && parent->children[1] && parent->children[2] && parent->children[3];
+    };
+
+    BoundingBox2D viewArea(XMFLOAT2(-1, -1), XMFLOAT2(1, 1));
+    QuadTree::Node* pRootNode = new QuadTree::Node();
+    pRootNode->parent = nullptr;
+    pRootNode->isFull = true;
+    pRootNode->depth = 0;
+
+    res->rootNode = pRootNode;
+
+    addDepth(viewArea, geometries, 1, res->rootNode);
+
+    return res;
+}
+
+static QuadTree* lastQuadTree = nullptr;
+
+float GetDynamicScoreBasedOnQuadtree(const QuadTree::Node* prev, const QuadTree::Node* current)
+{
+    float sum = 0.0f;
+
+    for (int i = 0; i < 4; ++i) {
+        bool prevExist = prev->children[i];
+        bool currentExist = current->children[i];
+
+        if (prevExist && currentExist) {
+            sum += GetDynamicScoreBasedOnQuadtree(prev->children[i], current->children[i]);
+        }
+        else if (prevExist != currentExist) {
+            assert(prev->depth == current->depth);
+
+            if (prevExist) {
+                sum += 1.0f / (4 * prev->children[i]->depth);
+            }
+            else if (currentExist) {
+                sum += 1.0f / (4 * current->children[i]->depth);
+            }
+        }
+    }
+
+    return sum;
+}
+
 
 // Loads and initializes application assets when the application is loaded.
 StereopsisBlockStackingMain::StereopsisBlockStackingMain(const std::shared_ptr<DX::DeviceResources>& deviceResources) :
@@ -149,8 +354,85 @@ HolographicFrame^ StereopsisBlockStackingMain::Update()
 
 	m_timer.Tick([&]()
 	{
-		for (int i = 0; i < m_cubeRenderers.size(); ++i)
-			m_cubeRenderers[i]->Update(m_timer);
+
+        holographicFrame->UpdateCurrentPrediction();
+        HolographicFramePrediction^ prediction = holographicFrame->CurrentPrediction;
+
+        for (auto cameraPose : prediction->CameraPoses)
+        {
+            auto coordinateSystem = m_referenceFrame->CoordinateSystem;
+            Platform::IBox<HolographicStereoTransform>^ viewTransformContainer = cameraPose->TryGetViewTransform(coordinateSystem);
+            HolographicStereoTransform viewCoordinateSystemTransform = viewTransformContainer->Value;
+            auto viewMatrix = DirectX::XMLoadFloat4x4(&viewCoordinateSystemTransform.Left);
+
+            HolographicStereoTransform cameraProjectionTransform = cameraPose->ProjectionTransform;
+            auto projectionMatrix = DirectX::XMLoadFloat4x4(&cameraProjectionTransform.Left);
+
+            auto VP = XMMatrixMultiply(viewMatrix, projectionMatrix);
+
+            for (int i = 0; i < m_cubeRenderers.size(); ++i) {
+                m_cubeRenderers[i]->Update(m_timer);
+            }
+
+            std::vector<const BoundingBox2D*> bbs;
+
+            for (int i = 0; i < m_cubeRenderers.size(); ++i) {
+                BoundingBox bb = m_cubeRenderers[i]->GetBoundingBox();
+                XMFLOAT3 corners[8];
+                auto boundingBox2D = new BoundingBox2D();
+
+                bb.GetCorners(corners);
+
+                for (int vi = 0; vi < 8; ++vi) {
+                    XMFLOAT4 result;
+                    XMStoreFloat4(&result,
+                        XMVector3TransformCoord(XMLoadFloat3(&corners[i]), VP));
+                    boundingBox2D->AddPoint(result.x, result.y);
+                }
+                bbs.push_back(boundingBox2D);
+            }
+
+            auto* quadTree = QuadTree::Create(bbs, 16);
+
+            if (lastQuadTree) {
+                float dynamicScore = GetDynamicScoreBasedOnQuadtree(lastQuadTree->rootNode, quadTree->rootNode);
+
+                auto* framerateController = FramerateController::get();
+
+                if (framerateController->GetFPS() > 60 - 1) {
+                    if (dynamicScore < 0.5f) {
+                        framerateController->SetFramerate(30);
+                    }
+                }
+                else if (framerateController->GetFPS() > 30 - 1) {
+                    if (dynamicScore > 0.5f) {
+                        framerateController->SetFramerate(60);
+                    }
+                    else if (dynamicScore < 0.3f) {
+                        framerateController->SetFramerate(15);
+                    }
+                }
+                else if (framerateController->GetFPS() > 15 - 1) {
+                    if (dynamicScore > 0.3f) {
+                        framerateController->SetFramerate(30);
+                    }
+                }
+
+                if (lastQuadTree) {
+                    delete lastQuadTree;
+                    lastQuadTree = nullptr;
+                }
+            }
+
+            for (int i = 0; i < bbs.size(); ++i) {
+                if (bbs[i]) {
+                    delete bbs[i];
+                    bbs[i] = nullptr;
+                }
+            }
+
+            lastQuadTree = quadTree;
+        }
 	});
 
 	return holographicFrame;
@@ -166,7 +448,6 @@ bool StereopsisBlockStackingMain::Render(Windows::Graphics::Holographic::Hologra
 	return m_deviceResources->UseHolographicCameraResources<bool>(
 		[this, holographicFrame](std::map<UINT32, std::unique_ptr<DX::CameraResources>>& cameraResourceMap)
 	{
-		holographicFrame->UpdateCurrentPrediction();
 		HolographicFramePrediction^ prediction = holographicFrame->CurrentPrediction;
 
 		bool atLeastOneCameraRendered = false;

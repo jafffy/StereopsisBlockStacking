@@ -83,5 +83,7 @@ namespace StereopsisBlockStacking
         Windows::Foundation::EventRegistrationToken                     m_cameraAddedToken;
         Windows::Foundation::EventRegistrationToken                     m_cameraRemovedToken;
         Windows::Foundation::EventRegistrationToken                     m_locatabilityChangedToken;
+
+        Windows::Devices::Sensors::Gyrometer^ gyrometer;
     };
 }

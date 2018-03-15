@@ -73,6 +73,9 @@
     <ClCompile Include="LPGL\lpgl.cpp">
       <Filter>LPGL</Filter>
     </ClCompile>
+    <ClCompile Include="Common\FramerateController.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -95,6 +98,12 @@
     </ClInclude>
     <ClInclude Include="LPGL\lpgl.h">
       <Filter>LPGL</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\FramerateController.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Singleton.h">
+      <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

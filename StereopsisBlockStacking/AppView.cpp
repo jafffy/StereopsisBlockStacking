@@ -3,6 +3,8 @@
 
 #include <ppltasks.h>
 
+#include "Common\FramerateController.h"
+
 using namespace StereopsisBlockStacking;
 
 using namespace concurrency;
@@ -96,18 +98,25 @@ void AppView::Load(Platform::String^ entryPoint)
 // update, draw, and present loop, and it also oversees window message processing.
 void AppView::Run()
 {
+    FramerateController *framerateController = new FramerateController();
+
+    framerateController->Start();
+    framerateController->SetFramerate(60);
+
     while (!m_windowClosed)
     {
         if (m_windowVisible && (m_holographicSpace != nullptr))
         {
+            framerateController->Tick();
+
             CoreWindow::GetForCurrentThread()->Dispatcher->ProcessEvents(CoreProcessEventsOption::ProcessAllIfPresent);
 
             HolographicFrame^ holographicFrame = m_main->Update();
 
             if (m_main->Render(holographicFrame))
             {
-                // The holographic frame has an API that presents the swap chain for each
-                // holographic camera.
+                framerateController->Wait();
+
                 m_deviceResources->Present(holographicFrame);
             }
         }
