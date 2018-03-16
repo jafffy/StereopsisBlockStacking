@@ -16,6 +16,12 @@ SpinningCubeRenderer::SpinningCubeRenderer()
     CreateDeviceDependentResources();
 }
 
+SpinningCubeRenderer::SpinningCubeRenderer(const XMFLOAT3& color)
+	: m_color(color)
+{
+    CreateDeviceDependentResources();
+}
+
 void SpinningCubeRenderer::Update(const DX::StepTimer& timer)
 {
 	if (!m_loadingComplete)
@@ -35,6 +41,7 @@ void SpinningCubeRenderer::Render()
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 
 	glLoadIdentity();
+	glScalef(m_scale.x, m_scale.y, m_scale.z);
 	glTranslatef(m_position.x, m_position.y, m_position.z);
 
 	glDrawElementsInstanced(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_SHORT, nullptr, 2);
@@ -45,16 +52,16 @@ void SpinningCubeRenderer::CreateDeviceDependentResources()
 	task<void> createCubeTask = create_task([this]()
 	{
 		float width = 0.05f;
-		static const std::array<VertexPositionColor, 8> cubeVertices =
+		const std::array<VertexPositionColor, 8> cubeVertices =
 		{ {
-			{ XMFLOAT3(-width, -width, -width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(-width, -width,  width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(-width,  width, -width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(-width,  width,  width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(width, -width, -width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(width, -width,  width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(width,  width, -width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-			{ XMFLOAT3(width,  width,  width), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+			{ XMFLOAT3(-width, -width, -width), m_color },
+			{ XMFLOAT3(-width, -width,  width), m_color },
+			{ XMFLOAT3(-width,  width, -width), m_color },
+			{ XMFLOAT3(-width,  width,  width), m_color },
+			{ XMFLOAT3(width, -width, -width), m_color },
+			{ XMFLOAT3(width, -width,  width), m_color },
+			{ XMFLOAT3(width,  width, -width), m_color },
+			{ XMFLOAT3(width,  width,  width), m_color },
 		} };
 
 		DirectX::BoundingBox::CreateFromPoints(

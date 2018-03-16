@@ -59,6 +59,7 @@ namespace StereopsisBlockStacking
         void UnregisterHolographicEventHandlers();
 
         std::vector<std::unique_ptr<SpinningCubeRenderer>> m_cubeRenderers;
+		std::unique_ptr<SpinningCubeRenderer> m_aimingCube;
 
 		SpinningCubeRenderer* m_pickedObject = nullptr;
 

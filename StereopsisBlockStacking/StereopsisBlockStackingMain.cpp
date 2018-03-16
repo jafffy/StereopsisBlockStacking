@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <string>
+#include <sstream>
 
 #include "Common\FramerateController.h"
 
@@ -245,6 +246,10 @@ void StereopsisBlockStackingMain::SetHolographicSpace(HolographicSpace^ holograp
 		m_cubeRenderers.push_back(std::make_unique<SpinningCubeRenderer>());
 	}
 
+	m_aimingCube = std::make_unique<SpinningCubeRenderer>(XMFLOAT3(1, 0, 0));
+	m_aimingCube->SetScale(0.05f);
+	// m_aimingCube->SetVisible(false);
+
     m_spatialInputHandler = std::make_unique<SpatialInputHandler>();
 
     m_locator = SpatialLocator::GetDefault();
@@ -312,127 +317,186 @@ HolographicFrame^ StereopsisBlockStackingMain::Update()
 
     SpatialInteractionSourceState^ pointerState = m_spatialInputHandler->CheckForInput();
 
-	if (pointerState != nullptr) {
-		auto pose = pointerState->TryGetPointerPose(currentCoordinateSystem);
+	m_timer.Tick([&]()
+	{
+		holographicFrame->UpdateCurrentPrediction();
+		HolographicFramePrediction^ prediction = holographicFrame->CurrentPrediction;
 
-		switch (m_spatialInputHandler->m_spatialInputState) {
-		case eSISPressed:
-			for (int i = 0; i < m_cubeRenderers.size(); ++i) {
-				DirectX::BoundingBox bb = m_cubeRenderers[i]->GetBoundingBox();
+		auto headPosition = float3();
+		auto headDirection = float3();
+		auto timestamp = prediction->Timestamp->TargetTime.UniversalTime;
+		int numCameraPoses = prediction->CameraPoses->Size;
 
-				float distance = 0.0f;
+		for (auto cameraPose : prediction->CameraPoses) {
+			auto coordinateSystem = m_referenceFrame->CoordinateSystem;
+			SpatialPointerPose^ pose = SpatialPointerPose::TryGetAtTimestamp(coordinateSystem, prediction->Timestamp);
 
-				if (bb.Intersects(
-					DirectX::XMLoadFloat3(&pose->Head->Position),
-					DirectX::XMLoadFloat3(&pose->Head->ForwardDirection),
-					distance)) {
-					m_cubeRenderers[i]->isGrabbed = true;
+			auto headPositionInternal = pose->Head->Position;
+			auto headDirectionInternal = pose->Head->ForwardDirection;
 
-					m_pickedObject = m_cubeRenderers[i].get();
+			headPosition += headPositionInternal;
+			headDirection += headDirectionInternal;
+		}
 
+		headPosition /= numCameraPoses;
+		headDirection /= numCameraPoses;
+
+		if (m_aimingCube->IsVisible()) {
+			m_aimingCube->SetPosition(headPosition + headDirection);
+
+			std::ostringstream s;
+			s << "timestamp: " << timestamp << '\n';
+			s << "headPosition: " << headPosition.x << " " << headPosition.y << " " << headPosition.z << "\n";
+			s << "headDirection: " << headDirection.x << " " << headDirection.y << " " << headDirection.z << "\n";
+			OutputDebugStringA(s.str().c_str());
+		}
+
+		for (auto cameraPose : prediction->CameraPoses)
+		{
+			auto coordinateSystem = m_referenceFrame->CoordinateSystem;
+
+			if (pointerState != nullptr) {
+				switch (m_spatialInputHandler->m_spatialInputState) {
+				case eSISPressed:
+					for (int i = 0; i < m_cubeRenderers.size(); ++i) {
+						DirectX::BoundingBox bb = m_cubeRenderers[i]->GetBoundingBox();
+
+						float distance = 0.0f;
+
+						if (bb.Intersects(
+							DirectX::XMLoadFloat3(&headPosition),
+							DirectX::XMLoadFloat3(&headDirection),
+							distance)) {
+							m_cubeRenderers[i]->isGrabbed = true;
+
+							m_pickedObject = m_cubeRenderers[i].get();
+
+							break;
+						}
+					}
+					break;
+				case eSISMoved:
+				{
+					if (m_pickedObject) {
+						DirectX::BoundingBox bb = m_pickedObject->GetBoundingBox();
+
+						float distance = 0.0f;
+
+						if (bb.Intersects(
+							DirectX::XMLoadFloat3(&headPosition),
+							DirectX::XMLoadFloat3(&headDirection),
+							distance)) {
+							auto diff = m_pickedObject->GetPosition() - headPosition;
+							float distance = 0.0f;
+
+							DirectX::XMStoreFloat(&distance, DirectX::XMVector3Length(DirectX::XMLoadFloat3(&diff)));
+
+							m_pickedObject->SetPosition(headPosition + headDirection * distance);
+						}
+						else {
+							m_pickedObject = nullptr;
+						}
+					}
+					else {
+						for (int i = 0; i < m_cubeRenderers.size(); ++i) {
+							DirectX::BoundingBox bb = m_cubeRenderers[i]->GetBoundingBox();
+
+							float distance = 0.0f;
+
+							if (bb.Intersects(
+								DirectX::XMLoadFloat3(&headPosition),
+								DirectX::XMLoadFloat3(&headDirection),
+								distance)) {
+								m_cubeRenderers[i]->isGrabbed = true;
+
+								m_pickedObject = m_cubeRenderers[i].get();
+
+								break;
+							}
+						}
+					}
+					break;
+				}
+				case eSISReleased:
+					m_pickedObject = nullptr;
 					break;
 				}
 			}
-			break;
-		case eSISMoved:
-		{
-			if (m_pickedObject) {
-				auto diff = m_pickedObject->GetPosition() - pose->Head->Position;
-				float distance = 0.0f;
 
-				DirectX::XMStoreFloat(&distance, DirectX::XMVector3Length(DirectX::XMLoadFloat3(&diff)));
+			Platform::IBox<HolographicStereoTransform>^ viewTransformContainer = cameraPose->TryGetViewTransform(coordinateSystem);
+			HolographicStereoTransform viewCoordinateSystemTransform = viewTransformContainer->Value;
+			auto viewMatrix = DirectX::XMLoadFloat4x4(&viewCoordinateSystemTransform.Left);
 
-				m_pickedObject->SetPosition(pose->Head->Position + pose->Head->ForwardDirection * distance);
+			HolographicStereoTransform cameraProjectionTransform = cameraPose->ProjectionTransform;
+			auto projectionMatrix = DirectX::XMLoadFloat4x4(&cameraProjectionTransform.Left);
+
+			auto VP = XMMatrixMultiply(viewMatrix, projectionMatrix);
+
+			for (int i = 0; i < m_cubeRenderers.size(); ++i) {
+				m_cubeRenderers[i]->Update(m_timer);
 			}
-			break;
+
+			m_aimingCube->Update(m_timer);
+
+			std::vector<const BoundingBox2D*> bbs;
+
+			for (int i = 0; i < m_cubeRenderers.size(); ++i) {
+				BoundingBox bb = m_cubeRenderers[i]->GetBoundingBox();
+				XMFLOAT3 corners[8];
+				auto boundingBox2D = new BoundingBox2D();
+
+				bb.GetCorners(corners);
+
+				for (int vi = 0; vi < 8; ++vi) {
+					XMFLOAT4 result;
+					XMStoreFloat4(&result,
+						XMVector3TransformCoord(XMLoadFloat3(&corners[i]), VP));
+					boundingBox2D->AddPoint(result.x, result.y);
+				}
+				bbs.push_back(boundingBox2D);
+			}
+
+			auto* quadTree = QuadTree::Create(bbs, 16);
+
+			if (lastQuadTree) {
+				float dynamicScore = GetDynamicScoreBasedOnQuadtree(lastQuadTree->rootNode, quadTree->rootNode);
+
+				auto* framerateController = FramerateController::get();
+
+				if (framerateController->GetFPS() > 60 - 1) {
+					if (dynamicScore < 0.5f) {
+						framerateController->SetFramerate(30);
+					}
+				}
+				else if (framerateController->GetFPS() > 30 - 1) {
+					if (dynamicScore > 0.5f) {
+						framerateController->SetFramerate(60);
+					}
+					else if (dynamicScore < 0.3f) {
+						framerateController->SetFramerate(15);
+					}
+				}
+				else if (framerateController->GetFPS() > 15 - 1) {
+					if (dynamicScore > 0.3f) {
+						framerateController->SetFramerate(30);
+					}
+				}
+
+				if (lastQuadTree) {
+					delete lastQuadTree;
+					lastQuadTree = nullptr;
+				}
+			}
+
+			for (int i = 0; i < bbs.size(); ++i) {
+				if (bbs[i]) {
+					delete bbs[i];
+					bbs[i] = nullptr;
+				}
+			}
+
+			lastQuadTree = quadTree;
 		}
-		case eSISReleased:
-			m_pickedObject = nullptr;
-			break;
-		}
-	}
-
-	m_timer.Tick([&]()
-	{
-
-        holographicFrame->UpdateCurrentPrediction();
-        HolographicFramePrediction^ prediction = holographicFrame->CurrentPrediction;
-
-        for (auto cameraPose : prediction->CameraPoses)
-        {
-            auto coordinateSystem = m_referenceFrame->CoordinateSystem;
-            Platform::IBox<HolographicStereoTransform>^ viewTransformContainer = cameraPose->TryGetViewTransform(coordinateSystem);
-            HolographicStereoTransform viewCoordinateSystemTransform = viewTransformContainer->Value;
-            auto viewMatrix = DirectX::XMLoadFloat4x4(&viewCoordinateSystemTransform.Left);
-
-            HolographicStereoTransform cameraProjectionTransform = cameraPose->ProjectionTransform;
-            auto projectionMatrix = DirectX::XMLoadFloat4x4(&cameraProjectionTransform.Left);
-
-            auto VP = XMMatrixMultiply(viewMatrix, projectionMatrix);
-
-            for (int i = 0; i < m_cubeRenderers.size(); ++i) {
-                m_cubeRenderers[i]->Update(m_timer);
-            }
-
-            std::vector<const BoundingBox2D*> bbs;
-
-            for (int i = 0; i < m_cubeRenderers.size(); ++i) {
-                BoundingBox bb = m_cubeRenderers[i]->GetBoundingBox();
-                XMFLOAT3 corners[8];
-                auto boundingBox2D = new BoundingBox2D();
-
-                bb.GetCorners(corners);
-
-                for (int vi = 0; vi < 8; ++vi) {
-                    XMFLOAT4 result;
-                    XMStoreFloat4(&result,
-                        XMVector3TransformCoord(XMLoadFloat3(&corners[i]), VP));
-                    boundingBox2D->AddPoint(result.x, result.y);
-                }
-                bbs.push_back(boundingBox2D);
-            }
-
-            auto* quadTree = QuadTree::Create(bbs, 16);
-
-            if (lastQuadTree) {
-                float dynamicScore = GetDynamicScoreBasedOnQuadtree(lastQuadTree->rootNode, quadTree->rootNode);
-
-                auto* framerateController = FramerateController::get();
-
-                if (framerateController->GetFPS() > 60 - 1) {
-                    if (dynamicScore < 0.5f) {
-                        framerateController->SetFramerate(30);
-                    }
-                }
-                else if (framerateController->GetFPS() > 30 - 1) {
-                    if (dynamicScore > 0.5f) {
-                        framerateController->SetFramerate(60);
-                    }
-                    else if (dynamicScore < 0.3f) {
-                        framerateController->SetFramerate(15);
-                    }
-                }
-                else if (framerateController->GetFPS() > 15 - 1) {
-                    if (dynamicScore > 0.3f) {
-                        framerateController->SetFramerate(30);
-                    }
-                }
-
-                if (lastQuadTree) {
-                    delete lastQuadTree;
-                    lastQuadTree = nullptr;
-                }
-            }
-
-            for (int i = 0; i < bbs.size(); ++i) {
-                if (bbs[i]) {
-                    delete bbs[i];
-                    bbs[i] = nullptr;
-                }
-            }
-
-            lastQuadTree = quadTree;
-        }
 	});
 
 	return holographicFrame;
@@ -470,6 +534,8 @@ bool StereopsisBlockStackingMain::Render(Windows::Graphics::Holographic::Hologra
 
 			if (cameraActive)
 			{
+				if (m_aimingCube->IsVisible())
+					m_aimingCube->Render();
 				for (int i = 0; i < m_cubeRenderers.size(); ++i)
 					m_cubeRenderers[i]->Render();
 			}
@@ -492,12 +558,16 @@ void StereopsisBlockStackingMain::OnDeviceLost()
 {
 	for (int i = 0; i < m_cubeRenderers.size(); ++i)
 		m_cubeRenderers[i]->ReleaseDeviceDependentResources();
+
+	m_aimingCube->ReleaseDeviceDependentResources();
 }
 
 void StereopsisBlockStackingMain::OnDeviceRestored()
 {
 	for (int i = 0; i < m_cubeRenderers.size(); ++i)
 		m_cubeRenderers[i]->CreateDeviceDependentResources();
+
+	m_aimingCube->CreateDeviceDependentResources();
 }
 
 void StereopsisBlockStackingMain::OnLocatabilityChanged(SpatialLocator^ sender, Object^ args)

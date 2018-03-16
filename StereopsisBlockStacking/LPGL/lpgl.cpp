@@ -17,7 +17,7 @@ struct __lpglBuffer {
 };
 
 static struct lpglContext {
-	std::stack<XMMATRIX> transform;
+	std::stack<XMFLOAT4X4> transform;
 
 	Microsoft::WRL::ComPtr<ID3D11InputLayout>       m_inputLayout;
 	Microsoft::WRL::ComPtr<ID3D11VertexShader>      m_vertexShader;
@@ -36,7 +36,7 @@ static struct lpglContext {
 	GLuint activeArrayBuffer = -1;
 	GLuint activeElementArrayBuffer = -1;
 
-	std::unordered_map<GLuint, std::unique_ptr<__lpglBuffer>> buffers;
+	std::unordered_map<GLuint, __lpglBuffer*> buffers;
 } gLpglContext;
 
 void lpglContext::Initialize()
@@ -162,7 +162,7 @@ void __lpglDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const 
 
 	XMStoreFloat4x4(
 		&gLpglContext.modelConstantBufferData.model,
-		XMMatrixTranspose(gLpglContext.transform.top()));
+		XMMatrixTranspose(XMLoadFloat4x4(&gLpglContext.transform.top())));
 	context->UpdateSubresource(
 		gLpglContext.modelConstantBuffer.Get(),
 		0,
@@ -182,7 +182,7 @@ void __lpglDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const 
 	context->IASetVertexBuffers(
 		0,
 		1,
-		gLpglContext.buffers[gLpglContext.activeArrayBuffer].get()->buffer.GetAddressOf(),
+		gLpglContext.buffers[gLpglContext.activeArrayBuffer]->buffer.GetAddressOf(),
 		&stride,
 		&offset
 	);
@@ -195,7 +195,7 @@ void __lpglDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const 
 	}
 
 	context->IASetIndexBuffer(
-		gLpglContext.buffers[gLpglContext.activeElementArrayBuffer].get()->buffer.Get(),
+		gLpglContext.buffers[gLpglContext.activeElementArrayBuffer]->buffer.Get(),
 		indexBufferFormat,
 		0
 	);
@@ -217,23 +217,44 @@ void __lpglDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const 
 
 void __lpglLoadIdentity() {
 	if (gLpglContext.transform.empty()) {
-		gLpglContext.transform.push(XMMatrixIdentity());
+		XMFLOAT4X4 mat;
+		XMStoreFloat4x4(&mat, XMMatrixIdentity());
+		gLpglContext.transform.push(mat);
 	}
 	else {
-		gLpglContext.transform.top() = XMMatrixIdentity();
+		XMFLOAT4X4 mat;
+		XMStoreFloat4x4(&mat, XMMatrixIdentity());
+		gLpglContext.transform.top() = mat;
 	}
 }
 
 void __lpglTranslatef(float x, float y, float z) {
 	if (gLpglContext.transform.empty()) {
-		gLpglContext.transform.push(XMMatrixTranslation(x, y, z));
+		XMFLOAT4X4 mat;
+		XMStoreFloat4x4(&mat, XMMatrixTranslation(x, y, z));
+		gLpglContext.transform.push(mat);
 	}
 	else {
-		gLpglContext.transform.top() =
+		XMStoreFloat4x4(&gLpglContext.transform.top(),
 			XMMatrixMultiply(
-				gLpglContext.transform.top(),
+				XMLoadFloat4x4(&gLpglContext.transform.top()),
 				XMMatrixTranslation(x, y, z)
-			);
+			));
+	}
+}
+
+void __lpglScalef(float x, float y, float z) {
+	if (gLpglContext.transform.empty()) {
+		XMFLOAT4X4 mat;
+		XMStoreFloat4x4(&mat, XMMatrixScaling(x, y, z));
+		gLpglContext.transform.push(mat);
+	}
+	else {
+		XMStoreFloat4x4(&gLpglContext.transform.top(),
+			XMMatrixMultiply(
+				XMLoadFloat4x4(&gLpglContext.transform.top()),
+				XMMatrixScaling(x, y, z)
+			));
 	}
 }
 
@@ -256,7 +277,7 @@ void __lpglBindBuffer(GLenum target, GLuint buffer)
 	}
 
 	if (gLpglContext.buffers.find(buffer) == gLpglContext.buffers.end()) {
-		gLpglContext.buffers.insert_or_assign(buffer, std::make_unique<__lpglBuffer>());
+		gLpglContext.buffers.insert_or_assign(buffer, new __lpglBuffer());
 	}
 }
 

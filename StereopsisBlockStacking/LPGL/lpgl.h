@@ -30,6 +30,8 @@ void __lpglLoadIdentity();
 
 void __lpglTranslatef(float x, float y, float z);
 
+void __lpglScalef(float x, float y, float z);
+
 void __lpglGenBuffers(GLsizei n, GLuint * buffers);
 
 void __lpglBindBuffer(GLenum target, GLuint buffer);
@@ -44,6 +46,9 @@ __lpglLoadIdentity()
 
 #define glTranslatef(x, y, z) \
 __lpglTranslatef(x, y, z)
+
+#define glScalef(x, y, z) \
+__lpglScalef(x, y, z)
 
 #define glGenBuffers(n, buffers) \
 __lpglGenBuffers(n, buffers)

@@ -14,6 +14,8 @@ namespace StereopsisBlockStacking
     {
     public:
         SpinningCubeRenderer();
+		SpinningCubeRenderer(const DirectX::XMFLOAT3& color);
+
         void CreateDeviceDependentResources();
         void ReleaseDeviceDependentResources();
         void Update(const DX::StepTimer& timer);
@@ -27,6 +29,11 @@ namespace StereopsisBlockStacking
         Windows::Foundation::Numerics::float3 GetScale() const { return m_scale; }
 
 		DirectX::BoundingBox GetBoundingBox() const;
+
+		void SetColor(const DirectX::XMFLOAT3& color) { m_color = color; }
+
+		void SetVisible(bool isVisible) { m_isVisible = isVisible; }
+		bool IsVisible() const { return m_isVisible; }
 
 		bool isGrabbed = false;
 
@@ -43,6 +50,7 @@ namespace StereopsisBlockStacking
         bool                                            m_loadingComplete = false;
         Windows::Foundation::Numerics::float3           m_position = { 0.f, 0.f, -2.f };
         Windows::Foundation::Numerics::float3           m_scale = { 1.0f, 1.0f, 1.0f };
-
+		DirectX::XMFLOAT3			m_color = { 1.0f, 1.0f, 1.0f };
+		bool m_isVisible = true;
     };
 }
