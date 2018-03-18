@@ -28,6 +28,26 @@ using namespace DirectX;
 
 using namespace Windows::Devices::Sensors;
 
+#define ORIGIN
+#ifdef LOW
+static struct {
+	float level1 = 0.7f;
+	float level2 = 0.5f;
+} threshold;
+#endif
+#ifdef HIGH
+static struct {
+	float level1 = 0.4f;
+	float level2 = 0.2f;
+} threshold;
+#endif
+#ifdef ORIGIN
+static struct {
+	float level1 = 0.0f;
+	float level2 = 0.0f;
+} threshold;
+#endif
+
 struct BoundingBox2D
 {
     XMFLOAT2 Min;
@@ -464,20 +484,20 @@ HolographicFrame^ StereopsisBlockStackingMain::Update()
 				auto* framerateController = FramerateController::get();
 
 				if (framerateController->GetFPS() > 60 - 1) {
-					if (dynamicScore < 0.5f) {
+					if (dynamicScore < threshold.level1) {
 						framerateController->SetFramerate(30);
 					}
 				}
 				else if (framerateController->GetFPS() > 30 - 1) {
-					if (dynamicScore > 0.5f) {
+					if (dynamicScore > threshold.level1) {
 						framerateController->SetFramerate(60);
 					}
-					else if (dynamicScore < 0.3f) {
+					else if (dynamicScore < threshold.level2) {
 						framerateController->SetFramerate(15);
 					}
 				}
 				else if (framerateController->GetFPS() > 15 - 1) {
-					if (dynamicScore > 0.3f) {
+					if (dynamicScore > threshold.level2) {
 						framerateController->SetFramerate(30);
 					}
 				}
