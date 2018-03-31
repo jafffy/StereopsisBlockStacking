@@ -19,6 +19,7 @@ using namespace StereopsisBlockStacking;
 using namespace concurrency;
 using namespace Platform;
 using namespace Windows::Foundation;
+
 using namespace Windows::Foundation::Numerics;
 using namespace Windows::Graphics::Holographic;
 using namespace Windows::Perception::Spatial;
@@ -365,9 +366,14 @@ HolographicFrame^ StereopsisBlockStackingMain::Update()
 			m_aimingCube->SetPosition(headPosition + headDirection);
 
 			std::ostringstream s;
-			s << "timestamp: " << timestamp << '\n';
-			s << "headPosition: " << headPosition.x << " " << headPosition.y << " " << headPosition.z << "\n";
-			s << "headDirection: " << headDirection.x << " " << headDirection.y << " " << headDirection.z << "\n";
+			s << "headPosition " << timestamp << " " << headPosition.x << " " << headPosition.y << " " << headPosition.z << '\n';
+			s << "headDirection " << timestamp << " " << headDirection.x << " " << headDirection.y << " " << headDirection.z << '\n';
+
+			for (int i = 0; i < m_cubeRenderers.size(); ++i) {
+				const auto v = m_cubeRenderers[i]->GetPosition();
+				s << "mesh " << i << " " << timestamp << " " << v.x << " " << v.y << " " << v.z << '\n';
+			}
+
 			OutputDebugStringA(s.str().c_str());
 		}
 
