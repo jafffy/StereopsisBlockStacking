@@ -22,7 +22,7 @@ using namespace std::placeholders;
 
 using namespace DirectX;
 
-#define LOW
+#define HIGH
 #ifdef LOW
 static struct {
     float level1 = 0.7f;
@@ -374,6 +374,8 @@ HolographicFrame^ StereopsisBlockStackingPlayerMain::Update()
         auto VP = XMMatrixMultiply(viewMatrix, projectionMatrix);
 
         std::vector<const BoundingBox2D*> bbs;
+        BoundingBox2D screen(XMFLOAT2(-1, -1), XMFLOAT2(1, 1));
+        BoundingBox2D focusArea(XMFLOAT2(-0.25f, -0.25f), XMFLOAT2(0.25f, 0.25f));
 
         for (int i = 0; i < m_meshRenderers.size(); ++i) {
             BoundingBox bb = m_meshRenderers[i]->GetBoundingBox();
@@ -389,7 +391,18 @@ HolographicFrame^ StereopsisBlockStackingPlayerMain::Update()
                 boundingBox2D->AddPoint(result.x, result.y);
             }
 
-            bbs.push_back(boundingBox2D);
+            if (!screen.IncludePoint(boundingBox2D->Max) && !screen.IncludePoint(boundingBox2D->Min))
+                m_meshRenderers[i]->IsVisible = false;
+            else {
+                m_meshRenderers[i]->IsVisible = true;
+
+                if (!focusArea.IncludePoint(boundingBox2D->Max) && !focusArea.IncludePoint(boundingBox2D->Min))
+                    m_meshRenderers[i]->IsOutFocused = true;
+                else
+                    m_meshRenderers[i]->IsOutFocused = false;
+
+                bbs.push_back(boundingBox2D);
+            }
         }
 
         auto* quadTree = QuadTree::Create(bbs, 16);
