@@ -366,13 +366,17 @@ HolographicFrame^ StereopsisBlockStackingMain::Update()
 			m_aimingCube->SetPosition(headPosition + headDirection);
 
 			std::ostringstream s;
-			s << "headPosition " << timestamp << " " << headPosition.x << " " << headPosition.y << " " << headPosition.z << '\n';
-			s << "headDirection " << timestamp << " " << headDirection.x << " " << headDirection.y << " " << headDirection.z << '\n';
+            // timestamp, headposition, headdirection, mesh0, mesh1, mesh2, mesh3, mesh4
+			s << timestamp << ',';
+            s << headPosition.x << ',' << headPosition.y << ',' << headPosition.z << ',';
+			s << headDirection.x << ',' << headDirection.y << ',' << headDirection.z;
 
 			for (int i = 0; i < m_cubeRenderers.size(); ++i) {
 				const auto v = m_cubeRenderers[i]->GetPosition();
-				s << "mesh " << i << " " << timestamp << " " << v.x << " " << v.y << " " << v.z << '\n';
+				s << ',' << v.x << ',' << v.y << ',' << v.z;
 			}
+
+            s << '\n';
 
 			OutputDebugStringA(s.str().c_str());
 		}

@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{ccd621a6-0578-4fcc-9f8b-4c7e95c164b4}</ProjectGuid>
+    <ProjectGuid>{09eaf46b-7b40-4dce-bbc5-820b7cb3eb1c}</ProjectGuid>
     <Keyword>HolographicApp</Keyword>
-    <RootNamespace>BlockStackingPlayer</RootNamespace>
+    <RootNamespace>StereopsisBlockStackingPlayer</RootNamespace>
     <DefaultLanguage>en-US</DefaultLanguage>
     <MinimumVisualStudioVersion>15.0</MinimumVisualStudioVersion>
     <AppContainerApplication>true</AppContainerApplication>
@@ -74,7 +74,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <PackageCertificateKeyFile>BlockStackingPlayer_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <PackageCertificateKeyFile>StereopsisBlockStackingPlayer_TemporaryKey.pfx</PackageCertificateKeyFile>
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -144,7 +144,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppView.h" />
-    <ClInclude Include="BlockStackingPlayerMain.h" />
+    <ClInclude Include="StereopsisBlockStackingPlayerMain.h" />
     <ClInclude Include="Common\DeviceResources.h" />
     <ClInclude Include="Common\DirectXHelper.h" />
     <ClInclude Include="Common\CameraResources.h" />
@@ -152,27 +152,30 @@
     <ClInclude Include="Content\SpatialInputHandler.h" />
     <ClInclude Include="Content\ShaderStructures.h" />
     <ClInclude Include="Content\SpinningCubeRenderer.h" />
-    <ClInclude Include="LPGL\lpgl.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="tiny_obj_loader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AppView.cpp" />
-    <ClCompile Include="BlockStackingPlayerMain.cpp" />
+    <ClCompile Include="StereopsisBlockStackingPlayerMain.cpp" />
     <ClCompile Include="Common\DeviceResources.cpp" />
     <ClCompile Include="Common\CameraResources.cpp" />
     <ClCompile Include="Content\SpatialInputHandler.cpp" />
     <ClCompile Include="Content\SpinningCubeRenderer.cpp" />
-    <ClCompile Include="LPGL\lpgl.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="tiny_obj_loader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
       <SubType>Designer</SubType>
     </AppxManifest>
-    <None Include="Assets\cylinder.mtl" />
-    <None Include="BlockStackingPlayer_TemporaryKey.pfx" />
+    <Image Include="Assets\cylinder.mtl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</DeploymentContent>
+      <FileType>Document</FileType>
+    </Image>
+    <None Include="StereopsisBlockStackingPlayer_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Content\PixelShader.hlsl">
@@ -197,7 +200,9 @@
     <Text Include="Assets\smallMovement.txt" />
   </ItemGroup>
   <ItemGroup>
-    <Object Include="Assets\cylinder.obj" />
+    <Image Include="Assets\cylinder.obj">
+      <FileType>Document</FileType>
+    </Image>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

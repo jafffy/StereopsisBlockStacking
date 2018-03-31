@@ -2,17 +2,17 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Common">
-      <UniqueIdentifier>ccd621a6-0578-4fcc-9f8b-4c7e95c164b4</UniqueIdentifier>
+      <UniqueIdentifier>09eaf46b-7b40-4dce-bbc5-820b7cb3eb1c</UniqueIdentifier>
     </Filter>
     <Filter Include="Assets">
-      <UniqueIdentifier>9b262c45-d72a-40ec-8268-119add65a19b</UniqueIdentifier>
+      <UniqueIdentifier>7f8c1e94-7e69-4a8b-bd62-6210ce3ade15</UniqueIdentifier>
       <Extensions>bmp;fbx;gif;jpg;jpeg;tga;tiff;tif;png</Extensions>
     </Filter>
     <Filter Include="Content">
-      <UniqueIdentifier>dc9622ff-cc87-4d94-92ee-7eaf20b8ac73</UniqueIdentifier>
+      <UniqueIdentifier>a112b068-e956-44d9-b6e7-d8d975ac55bd</UniqueIdentifier>
     </Filter>
     <Filter Include="Content\Shaders">
-      <UniqueIdentifier>890a3507-50a7-4483-83fa-495bad8c332c</UniqueIdentifier>
+      <UniqueIdentifier>2bcc9711-022a-457f-9431-626174f9ed20</UniqueIdentifier>
     </Filter>
     <ClInclude Include="Common\DirectXHelper.h">
       <Filter>Common</Filter>
@@ -53,9 +53,6 @@
     <Image Include="Assets\Wide310x150Logo.scale-200.png">
       <Filter>Assets</Filter>
     </Image>
-    <Filter Include="LPGL">
-      <UniqueIdentifier>{04e0b845-d4cb-44a2-805f-3b082b7b958a}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -66,10 +63,8 @@
     <ClCompile Include="Content\SpinningCubeRenderer.cpp">
       <Filter>Content</Filter>
     </ClCompile>
-    <ClCompile Include="BlockStackingPlayerMain.cpp" />
-    <ClCompile Include="LPGL\lpgl.cpp">
-      <Filter>LPGL</Filter>
-    </ClCompile>
+    <ClCompile Include="StereopsisBlockStackingPlayerMain.cpp" />
+    <ClCompile Include="tiny_obj_loader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -83,10 +78,8 @@
     <ClInclude Include="Content\ShaderStructures.h">
       <Filter>Content</Filter>
     </ClInclude>
-    <ClInclude Include="BlockStackingPlayerMain.h" />
-    <ClInclude Include="LPGL\lpgl.h">
-      <Filter>LPGL</Filter>
-    </ClInclude>
+    <ClInclude Include="StereopsisBlockStackingPlayerMain.h" />
+    <ClInclude Include="tiny_obj_loader.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Content\VertexShader.hlsl">
@@ -106,7 +99,7 @@
     <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="BlockStackingPlayer_TemporaryKey.pfx" />
+    <None Include="StereopsisBlockStackingPlayer_TemporaryKey.pfx" />
     <None Include="Assets\cylinder.mtl">
       <Filter>Assets</Filter>
     </None>
