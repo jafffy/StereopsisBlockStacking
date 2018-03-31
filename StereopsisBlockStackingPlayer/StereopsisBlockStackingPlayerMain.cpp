@@ -1,9 +1,12 @@
 #include "pch.h"
 #include "StereopsisBlockStackingPlayerMain.h"
 #include "Common\DirectXHelper.h"
+#include "LPGL\lpgl.h"
+#include "Common\FramerateController.h"
 
 #include <windows.graphics.directx.direct3d11.interop.h>
 #include <Collection.h>
+#include <string>
 
 
 using namespace StereopsisBlockStackingPlayer;
@@ -17,6 +20,226 @@ using namespace Windows::Perception::Spatial;
 using namespace Windows::UI::Input::Spatial;
 using namespace std::placeholders;
 
+using namespace DirectX;
+
+#define LOW
+#ifdef LOW
+static struct {
+    float level1 = 0.7f;
+    float level2 = 0.5f;
+} threshold;
+#endif
+#ifdef HIGH
+static struct {
+    float level1 = 0.4f;
+    float level2 = 0.2f;
+} threshold;
+#endif
+#ifdef ORIGIN
+static struct {
+    float level1 = 0.0f;
+    float level2 = 0.0f;
+} threshold;
+#endif
+
+struct BoundingBox2D
+{
+    XMFLOAT2 Min;
+    XMFLOAT2 Max;
+
+    BoundingBox2D()
+        : Min(FLT_MAX, FLT_MAX),
+        Max(-FLT_MAX, -FLT_MAX)
+    {}
+
+    BoundingBox2D(const XMFLOAT2& Min, const XMFLOAT2& Max)
+        : Min(Min), Max(Max) {}
+
+    float Width() const { return Max.x - Min.x; }
+    float Height() const { return Max.y - Min.y; }
+
+    void AddPoint(float x, float y)
+    {
+        Min.x = x < Min.x ? x : Min.x;
+        Min.y = y < Min.y ? y : Min.y;
+        Max.x = x > Max.x ? x : Max.x;
+        Max.y = y > Max.y ? y : Max.y;
+    }
+
+    bool IncludePoint(const XMFLOAT2& v) const
+    {
+        return Min.x < v.x && Min.y < v.y && Max.x > v.x && Max.y > v.y;
+    }
+
+    bool Intersect(const BoundingBox2D& bb) const
+    {
+        return IncludePoint(bb.Min) || IncludePoint(bb.Max);
+    }
+};
+
+struct BoundingBox3D
+{
+    XMFLOAT3 Min;
+    XMFLOAT3 Max;
+
+    XMFLOAT3 vertices[8];
+
+    BoundingBox3D()
+        : Min(FLT_MAX, FLT_MAX, FLT_MAX),
+        Max(-FLT_MAX, -FLT_MAX, -FLT_MAX)
+    {}
+
+    void AddPoint(const XMFLOAT3 &p)
+    {
+        float* m = &Min.x;
+        float* M = &Max.x;
+        const float* pPoint = &p.x;
+
+        for (int i = 0; i < 3; ++i) {
+            if (m[i] > pPoint[i]) {
+                m[i] = pPoint[i];
+            }
+            if (M[i] < pPoint[i]) {
+                M[i] = pPoint[i];
+            }
+        }
+    }
+
+    void BuildGeometry()
+    {
+        vertices[0] = Min;
+        vertices[1] = Max;
+        vertices[2] = XMFLOAT3(Min.x, Max.y, Max.z);
+        vertices[3] = XMFLOAT3(Min.x, Max.y, Min.z);
+        vertices[4] = XMFLOAT3(Max.x, Max.y, Min.z);
+        vertices[5] = XMFLOAT3(Min.x, Min.y, Max.z);
+        vertices[6] = XMFLOAT3(Max.x, Min.y, Max.z);
+        vertices[7] = XMFLOAT3(Max.x, Min.y, Min.z);
+    }
+};
+
+struct QuadTree
+{
+    struct Node
+    {
+        Node* parent = nullptr;
+        Node* children[4] = { nullptr, nullptr, nullptr, nullptr };
+
+        bool isFull = false;
+        int depth;
+    };
+
+    Node* rootNode = nullptr;
+
+    static QuadTree* Create(const std::vector<const BoundingBox2D*>& geometries, const int kMaxDepth);
+
+    ~QuadTree()
+    {
+        DeleteSubtree(rootNode);
+
+        if (rootNode) {
+            delete rootNode;
+            rootNode = nullptr;
+        }
+    }
+
+    void DeleteSubtree(Node* node)
+    {
+        if (!node)
+            return;
+
+        for (auto* child : node->children) {
+            DeleteSubtree(child);
+
+            if (child) {
+                delete child;
+                child = nullptr;
+            }
+        }
+    }
+};
+
+QuadTree* QuadTree::Create(const std::vector<const BoundingBox2D*>& geometries, const int kMaxDepth)
+{
+    QuadTree* res = new QuadTree();
+
+    std::function<void(const BoundingBox2D&, const std::vector<const BoundingBox2D*>&, int, QuadTree::Node*)> addDepth
+        = [&](const BoundingBox2D& area, const std::vector<const BoundingBox2D*>& geometries, int depth, QuadTree::Node* parent) {
+        auto& Min = area.Min;
+        auto& Max = area.Max;
+        float halfWidth = area.Width() * 0.5f;
+        float halfHeight = area.Height() * 0.5f;
+        std::vector<BoundingBox2D> subareas;
+        subareas.push_back(BoundingBox2D(XMFLOAT2(Min.x, Min.y), XMFLOAT2(Min.x + halfWidth, Min.y + halfHeight)));
+        subareas.push_back(BoundingBox2D(XMFLOAT2(Min.x + halfWidth, Min.y), XMFLOAT2(Max.x, Min.y + halfHeight)));
+        subareas.push_back(BoundingBox2D(XMFLOAT2(Min.x, Min.y + halfHeight), XMFLOAT2(Min.x + halfWidth, Max.y)));
+        subareas.push_back(BoundingBox2D(XMFLOAT2(Min.x + halfWidth, Min.y + halfHeight), XMFLOAT2(Max.x, Max.y)));
+
+        for (int i = 0; i < subareas.size(); ++i) {
+            auto& subarea = subareas[i];
+
+            for (auto* geometry : geometries) {
+                if (subarea.Intersect(*geometry)) {
+                    QuadTree::Node* pNode = new QuadTree::Node();
+                    parent->children[i] = pNode;
+                    pNode->parent = parent;
+                    pNode->isFull = false;
+                    pNode->depth = depth;
+
+                    if (depth + 1 < kMaxDepth) {
+                        addDepth(subarea, geometries, depth + 1, pNode);
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        parent->isFull = parent->children[0] && parent->children[1] && parent->children[2] && parent->children[3];
+    };
+
+    BoundingBox2D viewArea(XMFLOAT2(-1, -1), XMFLOAT2(1, 1));
+    QuadTree::Node* pRootNode = new QuadTree::Node();
+    pRootNode->parent = nullptr;
+    pRootNode->isFull = true;
+    pRootNode->depth = 0;
+
+    res->rootNode = pRootNode;
+
+    addDepth(viewArea, geometries, 1, res->rootNode);
+
+    return res;
+}
+
+static QuadTree* lastQuadTree = nullptr;
+
+float GetDynamicScoreBasedOnQuadtree(const QuadTree::Node* prev, const QuadTree::Node* current)
+{
+    float sum = 0.0f;
+
+    for (int i = 0; i < 4; ++i) {
+        bool prevExist = prev->children[i];
+        bool currentExist = current->children[i];
+
+        if (prevExist && currentExist) {
+            sum += GetDynamicScoreBasedOnQuadtree(prev->children[i], current->children[i]);
+        }
+        else if (prevExist != currentExist) {
+            assert(prev->depth == current->depth);
+
+            if (prevExist) {
+                sum += 1.0f / (4 * prev->children[i]->depth);
+            }
+            else if (currentExist) {
+                sum += 1.0f / (4 * current->children[i]->depth);
+            }
+        }
+    }
+
+    return sum;
+}
+
+
 StereopsisBlockStackingPlayerMain::StereopsisBlockStackingPlayerMain(const std::shared_ptr<DX::DeviceResources>& deviceResources) :
     m_deviceResources(deviceResources)
 {
@@ -29,12 +252,14 @@ void StereopsisBlockStackingPlayerMain::SetHolographicSpace(HolographicSpace^ ho
 
     m_holographicSpace = holographicSpace;
 
+    lpglInit(m_deviceResources);
+
     // Load records
     {
         char buf[4096];
 
         FILE* fp;
-        fopen_s(&fp, ".\\Assets\\smallMovement.txt", "rt");
+        fopen_s(&fp, ".\\Assets\\bigMovement.txt", "rt");
 
         while (NULL != fgets(buf, 4096, fp)) {
             Record record;
@@ -58,7 +283,7 @@ void StereopsisBlockStackingPlayerMain::SetHolographicSpace(HolographicSpace^ ho
     int N = 5;
 
     for (int i = 0; i < N; ++i) {
-        m_meshRenderers.push_back(std::make_unique<SpinningCubeRenderer>(m_deviceResources));
+        m_meshRenderers.push_back(std::make_unique<SpinningCubeRenderer>());
     }
 
     m_spatialInputHandler = std::make_unique<SpatialInputHandler>();
@@ -121,6 +346,7 @@ StereopsisBlockStackingPlayerMain::~StereopsisBlockStackingPlayerMain()
 HolographicFrame^ StereopsisBlockStackingPlayerMain::Update()
 {
     HolographicFrame^ holographicFrame = m_holographicSpace->CreateNextFrame();
+    holographicFrame->UpdateCurrentPrediction();
 
     HolographicFramePrediction^ prediction = holographicFrame->CurrentPrediction;
 
@@ -135,8 +361,82 @@ HolographicFrame^ StereopsisBlockStackingPlayerMain::Update()
         }
     });
 
-    using namespace DirectX;
+    for (auto cameraPose : prediction->CameraPoses) {
+        auto coordinateSystem = m_referenceFrame->CoordinateSystem;
 
+        Platform::IBox<HolographicStereoTransform>^ viewTransformContainer = cameraPose->TryGetViewTransform(coordinateSystem);
+        HolographicStereoTransform viewCoordinateSystemTransform = viewTransformContainer->Value;
+        auto viewMatrix = DirectX::XMLoadFloat4x4(&viewCoordinateSystemTransform.Left);
+
+        HolographicStereoTransform cameraProjectionTransform = cameraPose->ProjectionTransform;
+        auto projectionMatrix = DirectX::XMLoadFloat4x4(&cameraProjectionTransform.Left);
+
+        auto VP = XMMatrixMultiply(viewMatrix, projectionMatrix);
+
+        std::vector<const BoundingBox2D*> bbs;
+
+        for (int i = 0; i < m_meshRenderers.size(); ++i) {
+            BoundingBox bb = m_meshRenderers[i]->GetBoundingBox();
+            XMFLOAT3 corners[8];
+            auto* boundingBox2D = new BoundingBox2D();
+
+            bb.GetCorners(corners);
+
+            for (int vi = 0; vi < 8; ++vi) {
+                XMFLOAT4 result;
+                XMStoreFloat4(&result,
+                    XMVector3TransformCoord(XMLoadFloat3(&corners[i]), VP));
+                boundingBox2D->AddPoint(result.x, result.y);
+            }
+
+            bbs.push_back(boundingBox2D);
+        }
+
+        auto* quadTree = QuadTree::Create(bbs, 16);
+
+        if (lastQuadTree) {
+            float dynamicScore = GetDynamicScoreBasedOnQuadtree(lastQuadTree->rootNode, quadTree->rootNode);
+
+            auto* framerateController = FramerateController::get();
+
+            if (framerateController->GetFPS() > 60 - 1) {
+                if (dynamicScore < threshold.level1) {
+                    framerateController->SetFramerate(30);
+                }
+            }
+            else if (framerateController->GetFPS() > 30 - 1) {
+                if (dynamicScore > threshold.level1) {
+                    framerateController->SetFramerate(60);
+                }
+                else if (dynamicScore < threshold.level2) {
+                    framerateController->SetFramerate(15);
+                }
+            }
+            else if (framerateController->GetFPS() > 15 - 1) {
+                if (dynamicScore > threshold.level2) {
+                    framerateController->SetFramerate(30);
+                }
+            }
+
+            if (lastQuadTree) {
+                delete lastQuadTree;
+                lastQuadTree = nullptr;
+            }
+        }
+
+        for (int i = 0; i < bbs.size(); ++i) {
+            if (bbs[i]) {
+                delete bbs[i];
+                bbs[i] = nullptr;
+            }
+        }
+
+        lastQuadTree = quadTree;
+
+        break;
+    }
+
+    // Play back recorded data
     XMVECTOR headPosition = XMLoadFloat3(&records[currentRecordIndex].headPosition),
     headDirection = XMLoadFloat3(&records[currentRecordIndex].headDirection),
     upVector = XMVectorSet(0, 1, 0, 1),
@@ -216,26 +516,12 @@ bool StereopsisBlockStackingPlayerMain::Render(Windows::Graphics::Holographic::H
 
 void StereopsisBlockStackingPlayerMain::SaveAppState()
 {
-    //
-    // TODO: Insert code here to save your app state.
-    //       This method is called when the app is about to suspend.
-    //
-    //       For example, store information in the SpatialAnchorStore.
-    //
 }
 
 void StereopsisBlockStackingPlayerMain::LoadAppState()
 {
-    //
-    // TODO: Insert code here to load your app state.
-    //       This method is called when the app resumes.
-    //
-    //       For example, load information from the SpatialAnchorStore.
-    //
 }
 
-// Notifies classes that use Direct3D device resources that the device resources
-// need to be released before this method returns.
 void StereopsisBlockStackingPlayerMain::OnDeviceLost()
 {
     for (auto& meshRenderer : m_meshRenderers) {
@@ -243,8 +529,6 @@ void StereopsisBlockStackingPlayerMain::OnDeviceLost()
     }
 }
 
-// Notifies classes that use Direct3D device resources that the device resources
-// may now be recreated.
 void StereopsisBlockStackingPlayerMain::OnDeviceRestored()
 {
     for (auto& meshRenderer : m_meshRenderers) {
@@ -257,7 +541,6 @@ void StereopsisBlockStackingPlayerMain::OnLocatabilityChanged(SpatialLocator^ se
     switch (sender->Locatability)
     {
     case SpatialLocatability::Unavailable:
-        // Holograms cannot be rendered.
         {
             String^ message = L"Warning! Positional tracking is " +
                                         sender->Locatability.ToString() + L".\n";
@@ -265,21 +548,14 @@ void StereopsisBlockStackingPlayerMain::OnLocatabilityChanged(SpatialLocator^ se
         }
         break;
 
-    // In the following three cases, it is still possible to place holograms using a
-    // SpatialLocatorAttachedFrameOfReference.
     case SpatialLocatability::PositionalTrackingActivating:
-        // The system is preparing to use positional tracking.
 
     case SpatialLocatability::OrientationOnly:
-        // Positional tracking has not been activated.
 
     case SpatialLocatability::PositionalTrackingInhibited:
-        // Positional tracking is temporarily inhibited. User action may be required
-        // in order to restore positional tracking.
         break;
 
     case SpatialLocatability::PositionalTrackingActive:
-        // Positional tracking is active. World-locked content can be rendered.
         break;
     }
 }
@@ -293,25 +569,8 @@ void StereopsisBlockStackingPlayerMain::OnCameraAdded(
     HolographicCamera^ holographicCamera = args->Camera;
     create_task([this, deferral, holographicCamera] ()
     {
-        //
-        // TODO: Allocate resources for the new camera and load any content specific to
-        //       that camera. Note that the render target size (in pixels) is a property
-        //       of the HolographicCamera object, and can be used to create off-screen
-        //       render targets that match the resolution of the HolographicCamera.
-        //
-
-        // Create device-based resources for the holographic camera and add it to the list of
-        // cameras used for updates and rendering. Notes:
-        //   * Since this function may be called at any time, the AddHolographicCamera function
-        //     waits until it can get a lock on the set of holographic camera resources before
-        //     adding the new camera. At 60 frames per second this wait should not take long.
-        //   * A subsequent Update will take the back buffer from the RenderingParameters of this
-        //     camera's CameraPose and use it to create the ID3D11RenderTargetView for this camera.
-        //     Content can then be rendered for the HolographicCamera.
         m_deviceResources->AddHolographicCamera(holographicCamera);
 
-        // Holographic frame predictions will not include any information about this camera until
-        // the deferral is completed.
         deferral->Complete();
     });
 }
@@ -323,17 +582,7 @@ void StereopsisBlockStackingPlayerMain::OnCameraRemoved(
 {
     create_task([this]()
     {
-        //
-        // TODO: Asynchronously unload or deactivate content resources (not back buffer 
-        //       resources) that are specific only to the camera that was removed.
-        //
     });
 
-    // Before letting this callback return, ensure that all references to the back buffer 
-    // are released.
-    // Since this function may be called at any time, the RemoveHolographicCamera function
-    // waits until it can get a lock on the set of holographic camera resources before
-    // deallocating resources for this camera. At 60 frames per second this wait should
-    // not take long.
     m_deviceResources->RemoveHolographicCamera(args->Camera);
 }

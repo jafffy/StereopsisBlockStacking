@@ -53,6 +53,9 @@
     <Image Include="Assets\Wide310x150Logo.scale-200.png">
       <Filter>Assets</Filter>
     </Image>
+    <Filter Include="LPGL">
+      <UniqueIdentifier>{0150c238-9352-4307-a20a-8522f09e0f08}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -65,6 +68,12 @@
     </ClCompile>
     <ClCompile Include="StereopsisBlockStackingPlayerMain.cpp" />
     <ClCompile Include="tiny_obj_loader.cpp" />
+    <ClCompile Include="LPGL\lpgl.cpp">
+      <Filter>LPGL</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\FramerateController.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -80,6 +89,15 @@
     </ClInclude>
     <ClInclude Include="StereopsisBlockStackingPlayerMain.h" />
     <ClInclude Include="tiny_obj_loader.h" />
+    <ClInclude Include="LPGL\lpgl.h">
+      <Filter>LPGL</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\FramerateController.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Singleton.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Content\VertexShader.hlsl">
@@ -100,9 +118,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="StereopsisBlockStackingPlayer_TemporaryKey.pfx" />
-    <None Include="Assets\cylinder.mtl">
-      <Filter>Assets</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Assets\bigMovement.txt">
@@ -113,8 +128,7 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
-    <Object Include="Assets\cylinder.obj">
-      <Filter>Assets</Filter>
-    </Object>
+    <Image Include="Assets\cylinder.mtl" />
+    <Image Include="Assets\cylinder.obj" />
   </ItemGroup>
 </Project>

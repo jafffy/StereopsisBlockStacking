@@ -10,230 +10,222 @@ using namespace DirectX;
 using namespace Windows::Foundation::Numerics;
 using namespace Windows::UI::Input::Spatial;
 
-// Loads vertex and pixel shaders from files and instantiates the cube geometry.
-SpinningCubeRenderer::SpinningCubeRenderer(const std::shared_ptr<DX::DeviceResources>& deviceResources) :
-    m_deviceResources(deviceResources)
+SpinningCubeRenderer::SpinningCubeRenderer()
 {
     CreateDeviceDependentResources();
 }
 
-// This function uses a SpatialPointerPose to position the world-locked hologram
-// two meters in front of the user's heading.
-void SpinningCubeRenderer::PositionHologram(SpatialPointerPose^ pointerPose)
-{
-    if (pointerPose != nullptr)
-    {
-        // Get the gaze direction relative to the given coordinate system.
-        const float3 headPosition    = pointerPose->Head->Position;
-        const float3 headDirection   = pointerPose->Head->ForwardDirection;
-
-        // The hologram is positioned two meters along the user's gaze direction.
-        constexpr float distanceFromUser    = 2.0f; // meters
-        const float3 gazeAtTwoMeters        = headPosition + (distanceFromUser * headDirection);
-
-        // This will be used as the translation component of the hologram's
-        // model transform.
-        SetPosition(gazeAtTwoMeters);
-    }
-}
-
-// Called once per frame. Rotates the cube, and calculates and sets the model matrix
-// relative to the position transform indicated by hologramPositionTransform.
 void SpinningCubeRenderer::Update(const DX::StepTimer& timer)
 {
-    const XMMATRIX modelTranslation = XMMatrixTranslationFromVector(XMLoadFloat3(&m_position));
-
-    XMStoreFloat4x4(&m_modelConstantBufferData.model, XMMatrixTranspose(modelTranslation));
-
     if (!m_loadingComplete)
     {
         return;
     }
-
-    const auto context = m_deviceResources->GetD3DDeviceContext();
-
-    context->UpdateSubresource(
-        m_modelConstantBuffer.Get(),
-        0,
-        nullptr,
-        &m_modelConstantBufferData,
-        0,
-        0
-        );
 }
 
-// Renders one frame using the vertex and pixel shaders.
-// On devices that do not support the D3D11_FEATURE_D3D11_OPTIONS3::
-// VPAndRTArrayIndexFromAnyShaderFeedingRasterizer optional feature,
-// a pass-through geometry shader is also used to set the render 
-// target array index.
 void SpinningCubeRenderer::Render()
 {
-    // Loading is asynchronous. Resources must be created before drawing can occur.
     if (!m_loadingComplete)
     {
         return;
     }
 
-    const auto context = m_deviceResources->GetD3DDeviceContext();
+    if (IsVisible) {
+        if (IsOutFocused) {
+            glBindBuffer(GL_ARRAY_BUFFER, outFocusVertexBuffer);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outFocusIndexBuffer);
 
-    // Each vertex is one instance of the VertexPositionColor struct.
-    const UINT stride = sizeof(VertexPositionColor);
-    const UINT offset = 0;
-    context->IASetVertexBuffers(
-        0,
-        1,
-        m_vertexBuffer.GetAddressOf(),
-        &stride,
-        &offset
-        );
-    context->IASetIndexBuffer(
-        m_indexBuffer.Get(),
-        DXGI_FORMAT_R16_UINT, // Each index is one 16-bit unsigned integer (short).
-        0
-        );
-    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    context->IASetInputLayout(m_inputLayout.Get());
+            glLoadIdentity();
+            glTranslatef(m_position.x, m_position.y, m_position.z);
 
-    // Attach the vertex shader.
-    context->VSSetShader(
-        m_vertexShader.Get(),
-        nullptr,
-        0
-        );
-    // Apply the model constant buffer to the vertex shader.
-    context->VSSetConstantBuffers(
-        0,
-        1,
-        m_modelConstantBuffer.GetAddressOf()
-        );
+            glDrawElementsInstanced(GL_TRIANGLES, m_indexCountOutFocused, GL_UNSIGNED_SHORT, nullptr, 2);
+        }
+        else {
+            glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 
-    if (!m_usingVprtShaders)
-    {
-        // On devices that do not support the D3D11_FEATURE_D3D11_OPTIONS3::
-        // VPAndRTArrayIndexFromAnyShaderFeedingRasterizer optional feature,
-        // a pass-through geometry shader is used to set the render target 
-        // array index.
-        context->GSSetShader(
-            m_geometryShader.Get(),
-            nullptr,
-            0
-            );
+            glLoadIdentity();
+            glTranslatef(m_position.x, m_position.y, m_position.z);
+
+            glDrawElementsInstanced(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_SHORT, nullptr, 2);
+        }
+    }
+}
+
+
+struct BoundingBox3D {
+    XMFLOAT3 Min, Max;
+
+    BoundingBox3D()
+        : Min(FLT_MAX, FLT_MAX, FLT_MAX),
+        Max(-FLT_MAX, -FLT_MAX, -FLT_MAX) {}
+
+    BoundingBox3D(const XMFLOAT3& Min, const XMFLOAT3& Max)
+        : Min(Min), Max(Max) {}
+
+    void AddPoint(const XMFLOAT3& p) {
+        Min.x = p.x < Min.x ? p.x : Min.x;
+        Min.y = p.y < Min.y ? p.y : Min.y;
+        Min.z = p.z < Min.z ? p.z : Min.z;
+
+        Max.x = p.x > Max.x ? p.x : Max.x;
+        Max.y = p.y > Max.y ? p.y : Max.y;
+        Max.z = p.z > Max.z ? p.z : Max.z;
     }
 
-    // Attach the pixel shader.
-    context->PSSetShader(
-        m_pixelShader.Get(),
-        nullptr,
-        0
-        );
+    bool IncludePoint(const XMFLOAT3& p) {
+        return Min.x < p.x && Min.y < p.y && Min.z < p.z
+            && Max.x > p.x && Max.y > p.y && Max.z > p.z;
+    }
+};
 
-    // Draw the objects.
-    context->DrawIndexedInstanced(
-        m_indexCount,   // Index count per instance.
-        2,              // Instance count.
-        0,              // Start index location.
-        0,              // Base vertex location.
-        0               // Start instance location.
-        );
+struct VoxelNode {
+    std::vector<int> position; // size of position is depth. Root is empty
+    BoundingBox3D* boundingBox = nullptr;
+
+    VoxelNode* parent = nullptr;
+    VoxelNode* children[8];
+    bool isCompleteSubtree = false;
+    bool isLeaf = false;
+
+    VoxelNode() {
+        memset(children, 0, sizeof(VoxelNode*) * 8);
+    }
+};
+
+struct VoxelOctree {
+    VoxelNode* rootNode = nullptr;
+    std::vector<const BoundingBox3D*> boxGeometries;
+};
+
+void createSuboctree(VoxelNode** parent, const std::vector<XMFLOAT3*>& vertices, const BoundingBox3D& boundingBox, int depth) {
+    assert(parent != nullptr && *parent != nullptr);
+    XMVECTOR mid, Min, Max;
+    Min = XMLoadFloat3(&boundingBox.Min);
+    Max = XMLoadFloat3(&boundingBox.Max);
+    mid = (Min + Max) * 0.5f;
+
+    auto halfLength = Max - mid;
+    auto halfLengthX = XMVectorSet(XMVectorGetX(halfLength), 0, 0, 0);
+    auto halfLengthY = XMVectorSet(0, XMVectorGetY(halfLength), 0, 0);
+    auto halfLengthZ = XMVectorSet(0, 0, XMVectorGetZ(halfLength), 0);
+
+    BoundingBox3D childrensBoundingBox[8];
+
+    XMStoreFloat3(&childrensBoundingBox[0].Min, Min + halfLengthZ);
+    XMStoreFloat3(&childrensBoundingBox[0].Max, mid + halfLengthZ);
+
+    XMStoreFloat3(&childrensBoundingBox[1].Min, Min - halfLengthY);
+    XMStoreFloat3(&childrensBoundingBox[1].Max, Max - halfLengthY);
+
+    XMStoreFloat3(&childrensBoundingBox[2].Min, Min + halfLengthX);
+    XMStoreFloat3(&childrensBoundingBox[2].Max, mid + halfLengthX);
+
+    XMStoreFloat3(&childrensBoundingBox[3].Min, Min);
+    XMStoreFloat3(&childrensBoundingBox[3].Max, mid);
+
+    XMStoreFloat3(&childrensBoundingBox[4].Min, mid - halfLengthX);
+    XMStoreFloat3(&childrensBoundingBox[4].Max, Max - halfLengthX);
+
+    XMStoreFloat3(&childrensBoundingBox[5].Min, mid);
+    XMStoreFloat3(&childrensBoundingBox[5].Max, Max);
+
+    XMStoreFloat3(&childrensBoundingBox[6].Min, mid - halfLengthZ);
+    XMStoreFloat3(&childrensBoundingBox[6].Max, Max - halfLengthZ);
+
+    XMStoreFloat3(&childrensBoundingBox[7].Min, Min + halfLengthY);
+    XMStoreFloat3(&childrensBoundingBox[7].Max, mid + halfLengthY);
+
+    for (int i = 0; i < 8; ++i) {
+        std::vector<XMFLOAT3*> subvertices;
+
+        for (auto* vertex : vertices) {
+            if (childrensBoundingBox[i].IncludePoint(*vertex)) {
+                subvertices.push_back(vertex);
+            }
+        }
+
+        if (subvertices.size() > 0) {
+            (*parent)->children[i] = new VoxelNode();
+            (*parent)->children[i]->parent = *parent;
+            (*parent)->children[i]->position = (*parent)->position;
+            (*parent)->children[i]->position.push_back(i);
+
+            BoundingBox3D* pChildBoundingBox = new BoundingBox3D();
+            *pChildBoundingBox = childrensBoundingBox[i];
+            (*parent)->children[i]->boundingBox = pChildBoundingBox;
+
+            if (depth - 1 > 0) {
+                createSuboctree(&(*parent)->children[i], subvertices, childrensBoundingBox[i], depth - 1);
+            }
+            else {
+                (*parent)->children[i]->isLeaf = true;
+            }
+        }
+    }
+
+    int isFull = 0;
+
+    for (int i = 0; i < 8; ++i) {
+        if (parent && (*parent)->children[i]
+            && ((*parent)->children[i]->isLeaf || (*parent)->children[i]->isCompleteSubtree)) {
+            isFull++;
+        }
+    }
+
+    if (isFull == 8) {
+        (*parent)->isCompleteSubtree = true;
+    }
+}
+
+void BuildOctreeGeometry(VoxelOctree* octree, VoxelNode* parent)
+{
+    if (!octree)
+        return;
+
+    if (parent->isCompleteSubtree) {
+        octree->boxGeometries.push_back(parent->boundingBox);
+    }
+    else {
+        for (int i = 0; i < 8; ++i) {
+            auto* child = parent->children[i];
+
+            if (child) {
+                if (child->isLeaf) {
+                    octree->boxGeometries.push_back(child->boundingBox);
+                }
+                else {
+                    BuildOctreeGeometry(octree, parent->children[i]);
+                }
+            }
+        }
+    }
+}
+
+VoxelOctree* createOctree(const std::vector<XMFLOAT3*>& vertices, int depth) {
+    VoxelOctree* voxelOctree = new VoxelOctree();
+    voxelOctree->rootNode = new VoxelNode();
+
+    BoundingBox3D *bb = new BoundingBox3D();
+    for (auto* vertex : vertices) {
+        bb->AddPoint(*vertex);
+    }
+    voxelOctree->rootNode->boundingBox = bb;
+
+    createSuboctree(&voxelOctree->rootNode, vertices, *bb, depth);
+
+    return voxelOctree;
 }
 
 void SpinningCubeRenderer::CreateDeviceDependentResources()
 {
-    m_usingVprtShaders = m_deviceResources->GetDeviceSupportsVprt();
-
-    // On devices that do support the D3D11_FEATURE_D3D11_OPTIONS3::
-    // VPAndRTArrayIndexFromAnyShaderFeedingRasterizer optional feature
-    // we can avoid using a pass-through geometry shader to set the render
-    // target array index, thus avoiding any overhead that would be 
-    // incurred by setting the geometry shader stage.
-    std::wstring vertexShaderFileName = m_usingVprtShaders ? L"ms-appx:///VprtVertexShader.cso" : L"ms-appx:///VertexShader.cso";
-
-    // Load shaders asynchronously.
-    task<std::vector<byte>> loadVSTask = DX::ReadDataAsync(vertexShaderFileName);
-    task<std::vector<byte>> loadPSTask = DX::ReadDataAsync(L"ms-appx:///PixelShader.cso");
-
-    task<std::vector<byte>> loadGSTask;
-    if (!m_usingVprtShaders)
-    {
-        // Load the pass-through geometry shader.
-        loadGSTask = DX::ReadDataAsync(L"ms-appx:///GeometryShader.cso");
-    }
-
-    // After the vertex shader file is loaded, create the shader and input layout.
-    task<void> createVSTask = loadVSTask.then([this] (const std::vector<byte>& fileData)
-    {
-        DX::ThrowIfFailed(
-            m_deviceResources->GetD3DDevice()->CreateVertexShader(
-                fileData.data(),
-                fileData.size(),
-                nullptr,
-                &m_vertexShader
-                )
-            );
-
-        constexpr std::array<D3D11_INPUT_ELEMENT_DESC, 2> vertexDesc =
-        {{
-            { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0,  0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-            { "COLOR",    0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        }};
-
-        DX::ThrowIfFailed(
-            m_deviceResources->GetD3DDevice()->CreateInputLayout(
-                vertexDesc.data(),
-                static_cast<UINT>(vertexDesc.size()),
-                fileData.data(),
-                static_cast<UINT>(fileData.size()),
-                &m_inputLayout
-                )
-            );
-    });
-
-    // After the pixel shader file is loaded, create the shader and constant buffer.
-    task<void> createPSTask = loadPSTask.then([this] (const std::vector<byte>& fileData)
-    {
-        DX::ThrowIfFailed(
-            m_deviceResources->GetD3DDevice()->CreatePixelShader(
-                fileData.data(),
-                fileData.size(),
-                nullptr,
-                &m_pixelShader
-                )
-            );
-
-        const CD3D11_BUFFER_DESC constantBufferDesc(sizeof(ModelConstantBuffer), D3D11_BIND_CONSTANT_BUFFER);
-        DX::ThrowIfFailed(
-            m_deviceResources->GetD3DDevice()->CreateBuffer(
-                &constantBufferDesc,
-                nullptr,
-                &m_modelConstantBuffer
-                )
-            );
-    });
-
-    task<void> createGSTask;
-    if (!m_usingVprtShaders)
-    {
-        // After the pass-through geometry shader file is loaded, create the shader.
-        createGSTask = loadGSTask.then([this] (const std::vector<byte>& fileData)
-        {
-            DX::ThrowIfFailed(
-                m_deviceResources->GetD3DDevice()->CreateGeometryShader(
-                    fileData.data(),
-                    fileData.size(),
-                    nullptr,
-                    &m_geometryShader
-                    )
-                );
-        });
-    }
-
-    // Once all shaders are loaded, create the mesh.
-    task<void> shaderTaskGroup = m_usingVprtShaders ? (createPSTask && createVSTask) : (createPSTask && createVSTask && createGSTask);
-    task<void> createCubeTask  = shaderTaskGroup.then([this] ()
+    task<void> createCubeTask  = create_task([this] ()
     {
         std::vector<VertexPositionColor> cubeVertices;
         std::vector<unsigned short> cubeIndices;
+
+        std::vector<VertexPositionColor> cubeVerticesOutFocused;
+        std::vector<unsigned short> cubeIndicesOutFocused;
 
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
@@ -282,33 +274,84 @@ void SpinningCubeRenderer::CreateDeviceDependentResources()
             }
         }
 
-        D3D11_SUBRESOURCE_DATA vertexBufferData = {0};
-        vertexBufferData.pSysMem                = cubeVertices.data();
-        vertexBufferData.SysMemPitch            = 0;
-        vertexBufferData.SysMemSlicePitch       = 0;
-        const CD3D11_BUFFER_DESC vertexBufferDesc(sizeof(VertexPositionColor) * static_cast<UINT>(cubeVertices.size()), D3D11_BIND_VERTEX_BUFFER);
-        DX::ThrowIfFailed(
-            m_deviceResources->GetD3DDevice()->CreateBuffer(
-                &vertexBufferDesc,
-                &vertexBufferData,
-                &m_vertexBuffer
-                )
-            );
+        DirectX::BoundingBox::CreateFromPoints(
+            initialBoundingBox,
+            cubeVertices.size(),
+            reinterpret_cast<const XMFLOAT3*>(cubeVertices.data()),
+            sizeof(XMFLOAT3) * 2);
+
+        glGenBuffers(1, &vertexBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(VertexPositionColor) * cubeVertices.size(),
+            cubeVertices.data(), GL_STATIC_DRAW);
 
         m_indexCount = static_cast<unsigned int>(cubeIndices.size());
 
-        D3D11_SUBRESOURCE_DATA indexBufferData  = {0};
-        indexBufferData.pSysMem                 = cubeIndices.data();
-        indexBufferData.SysMemPitch             = 0;
-        indexBufferData.SysMemSlicePitch        = 0;
-        CD3D11_BUFFER_DESC indexBufferDesc(sizeof(unsigned short) * static_cast<UINT>(cubeIndices.size()), D3D11_BIND_INDEX_BUFFER);
-        DX::ThrowIfFailed(
-        m_deviceResources->GetD3DDevice()->CreateBuffer(
-                &indexBufferDesc,
-                &indexBufferData,
-                &m_indexBuffer
-                )
-            );
+        glGenBuffers(1, &indexBuffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+            sizeof(unsigned short) * cubeIndices.size(),
+            cubeIndices.data(), GL_STATIC_DRAW);
+
+        std::vector<XMFLOAT3*> vertices;
+
+        for (int i = 0; i < attrib.vertices.size() / 3; ++i) {
+            vertices.push_back(reinterpret_cast<XMFLOAT3*>(attrib.vertices.data() + 3 * i));
+        }
+
+        auto* voxelOctree = createOctree(vertices, 3);
+
+        BuildOctreeGeometry(voxelOctree, voxelOctree->rootNode);
+
+        {
+            unsigned short index = 0;
+
+            for (const auto* leafNodeBox : voxelOctree->boxGeometries) {
+                auto &Min = leafNodeBox->Min;
+                auto &Max = leafNodeBox->Max;
+
+                cubeVerticesOutFocused.insert(cubeVerticesOutFocused.end(),
+                { VertexPositionColor(XMFLOAT3(Min.x, Min.y, Min.z), XMFLOAT3(1, 1, 1)),
+                    VertexPositionColor(XMFLOAT3(Min.x, Min.y, Max.z), XMFLOAT3(1, 1, 1)),
+                    VertexPositionColor(XMFLOAT3(Min.x, Max.y, Min.z), XMFLOAT3(1, 1, 1)),
+                    VertexPositionColor(XMFLOAT3(Min.x, Max.y, Max.z), XMFLOAT3(1, 1, 1)),
+                    VertexPositionColor(XMFLOAT3(Max.x, Min.y, Min.z), XMFLOAT3(1, 1, 1)),
+                    VertexPositionColor(XMFLOAT3(Max.x, Min.y, Max.z), XMFLOAT3(1, 1, 1)),
+                    VertexPositionColor(XMFLOAT3(Max.x, Max.y, Min.z), XMFLOAT3(1, 1, 1)),
+                    VertexPositionColor(XMFLOAT3(Max.x, Max.y, Max.z), XMFLOAT3(1, 1, 1)) });
+
+                cubeIndicesOutFocused.insert(cubeIndicesOutFocused.end(),
+                {
+                    unsigned short(index + 2),unsigned short(index + 0),unsigned short(index + 1), // -x
+                    unsigned short(index + 2),unsigned short(index + 1),unsigned short(index + 3),
+                    unsigned short(index + 6),unsigned short(index + 5),unsigned short(index + 4), // +x
+                    unsigned short(index + 6),unsigned short(index + 7),unsigned short(index + 5),
+                    unsigned short(index + 0),unsigned short(index + 5),unsigned short(index + 1), // -y
+                    unsigned short(index + 0),unsigned short(index + 4),unsigned short(index + 5),
+                    unsigned short(index + 2),unsigned short(index + 7),unsigned short(index + 6), // +y
+                    unsigned short(index + 2),unsigned short(index + 3),unsigned short(index + 7),
+                    unsigned short(index + 0),unsigned short(index + 6),unsigned short(index + 4), // -z
+                    unsigned short(index + 0),unsigned short(index + 2),unsigned short(index + 6),
+                    unsigned short(index + 1),unsigned short(index + 7),unsigned short(index + 3), // +z
+                    unsigned short(index + 1),unsigned short(index + 5),unsigned short(index + 7),
+                });
+
+                index += 8;
+            }
+        }
+
+        glGenBuffers(1, &outFocusVertexBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, outFocusVertexBuffer);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(VertexPositionColor) * cubeVerticesOutFocused.size(),
+            cubeVerticesOutFocused.data(), GL_STATIC_DRAW);
+
+        m_indexCountOutFocused = static_cast<unsigned int>(cubeIndicesOutFocused.size());
+
+        glGenBuffers(1, &outFocusIndexBuffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outFocusIndexBuffer);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+            sizeof(unsigned short) * cubeIndicesOutFocused.size(),
+            cubeIndicesOutFocused.data(), GL_STATIC_DRAW);
     });
 
     // Once the cube is loaded, the object is ready to be rendered.
@@ -321,12 +364,18 @@ void SpinningCubeRenderer::CreateDeviceDependentResources()
 void SpinningCubeRenderer::ReleaseDeviceDependentResources()
 {
     m_loadingComplete  = false;
-    m_usingVprtShaders = false;
-    m_vertexShader.Reset();
-    m_inputLayout.Reset();
-    m_pixelShader.Reset();
-    m_geometryShader.Reset();
-    m_modelConstantBuffer.Reset();
-    m_vertexBuffer.Reset();
-    m_indexBuffer.Reset();
+}
+
+DirectX::BoundingBox SpinningCubeRenderer::GetBoundingBox() const
+{
+    DirectX::BoundingBox outBB;
+
+    XMMATRIX modelTransform = XMMatrixTranslationFromVector(XMLoadFloat3(&m_position));
+
+    initialBoundingBox.Transform(
+        outBB,
+        modelTransform
+    );
+
+    return outBB;
 }

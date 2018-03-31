@@ -144,6 +144,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AppView.h" />
+    <ClInclude Include="Common\FramerateController.h" />
+    <ClInclude Include="Common\Singleton.h" />
+    <ClInclude Include="LPGL\lpgl.h" />
     <ClInclude Include="StereopsisBlockStackingPlayerMain.h" />
     <ClInclude Include="Common\DeviceResources.h" />
     <ClInclude Include="Common\DirectXHelper.h" />
@@ -157,6 +160,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AppView.cpp" />
+    <ClCompile Include="Common\FramerateController.cpp" />
+    <ClCompile Include="LPGL\lpgl.cpp" />
     <ClCompile Include="StereopsisBlockStackingPlayerMain.cpp" />
     <ClCompile Include="Common\DeviceResources.cpp" />
     <ClCompile Include="Common\CameraResources.cpp" />
